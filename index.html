@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>OGEA – Opportunities Beyond Campus</title>
+    <meta name="description" content="OGEA curates quizzes, workshops, writing competitions, seminars, hackathons and conferences for students across Kerala." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OGEA" />
+    <meta property="og:title" content="OGEA – Opportunities Beyond Campus" />
+    <meta property="og:description" content="Discover quizzes, workshops, competitions and conferences curated for students." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://res.cloudinary.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&family=Noto+Sans+Malayalam:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      try {
+        const t = localStorage.getItem('ogea-theme');
+        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <noscript>OGEA needs JavaScript enabled to run.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
