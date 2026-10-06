@@ -13,7 +13,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "seed:admin": "node server/scripts/seed-admin.js",
-    "import:programs": "node server/scripts/import-programs.js"
+    "import:programs": "node server/scripts/import-programs.js",
+    "sheets:sync": "node server/scripts/sheets-sync.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",

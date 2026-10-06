@@ -34,6 +34,11 @@ export const config = {
     apiSecret: env.CLOUDINARY_API_SECRET || '',
     folder: env.CLOUDINARY_FOLDER || 'ogea-api',
   },
+  sheets: {
+    apiUrl: env.SHEETS_API_URL || '',
+    apiToken: env.SHEETS_API_TOKEN || '',
+    timeoutMs: Number(env.SHEETS_TIMEOUT_MS) || 8000,
+  },
   otp: {
     ttlMinutes: 10,
     maxAttempts: 5,
@@ -48,3 +53,4 @@ export const config = {
 export const emailConfigured = () => Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
 export const cloudinaryConfigured = () =>
   Boolean(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
+export const sheetsConfigured = () => Boolean(config.sheets.apiUrl && config.sheets.apiToken);

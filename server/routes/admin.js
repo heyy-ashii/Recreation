@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { protect, restrictTo } from '../middleware/auth.js';
 import { email, name, objectId, password, username, validate } from '../middleware/validate.js';
 import { Conversation, Message } from '../models/Chat.js';
-import { Program } from '../models/Program.js';
 import { User } from '../models/User.js';
+import { getProgramsStore } from '../sheets/programsStore.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
 const router = Router();
@@ -15,18 +15,19 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 router.get(
   '/stats',
   asyncHandler(async (_req, res) => {
-    const [users, admins, disabled, programs, livePrograms, openChats, unread] = await Promise.all([
+    const programs = getProgramsStore();
+    const [users, admins, disabled, totalPrograms, livePrograms, openChats, unread] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'admin' }),
       User.countDocuments({ status: 'disabled' }),
-      Program.countDocuments(),
-      Program.countDocuments({ status: 'Live' }),
+      programs.count(),
+      programs.countLive(),
       Conversation.countDocuments({ status: 'open' }),
       Conversation.aggregate([{ $group: { _id: null, total: { $sum: '$unreadForAdmin' } } }]),
     ]);
     res.json({
       status: 'success',
-      data: { users, admins, disabled, programs, livePrograms, openChats, unreadMessages: unread[0]?.total ?? 0 },
+      data: { users, admins, disabled, programs: totalPrograms, livePrograms, openChats, unreadMessages: unread[0]?.total ?? 0 },
     });
   }),
 );
