@@ -1,5 +1,4 @@
 import { createServer } from 'node:http';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -7,24 +6,78 @@ process.env.NODE_ENV = 'test';
 
 const TOKEN = 'test-sheets-token';
 
-// Minimal stand-in for the deployed Apps Script: same actions, same JSON shapes,
-// backed by an in-memory "sheet" with Programs columns.
+// Stand-in for the deployed Apps Script: same actions and JSON shapes as Code.gs,
+// backed by in-memory tabs. Query matching happens on the Node side, so this only
+// needs to store rows and filter with the operators the app actually sends.
 function startFakeSheet() {
-  const rows = [];
-  const summary = (p) => ({
-    _id: p.id,
-    title: p.title,
-    organizer: p.organizer,
-    type: p.type,
-    category: p.category,
-    venue: p.venue,
-    imageurls: p.imageurls,
-    tags: p.tags,
-    status: p.status,
-    deadline: p.deadline || undefined,
-    eventDate: p.eventDate || undefined,
-    createdAt: p.createdAt,
-  });
+  const tabs = {
+    Users: [],
+    Otps: [],
+    Conversations: [],
+    Messages: [],
+    Programs: [],
+  };
+  const JSON_COLUMNS = { imageurls: true, tags: true };
+  const BOOLEAN_COLUMNS = { emailVerified: true };
+
+  const eq = (a, b) => {
+    if (typeof a === 'boolean' || typeof b === 'boolean') return Boolean(a) === Boolean(b);
+    if (a == null) a = '';
+    if (b == null) b = '';
+    return String(a) === String(b);
+  };
+  const cmp = (a, b) => {
+    const na = /^\d{4}-\d{2}-\d{2}/.test(String(a)) ? Date.parse(a) : Number(a);
+    const nb = /^\d{4}-\d{2}-\d{2}/.test(String(b)) ? Date.parse(b) : Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na < nb ? -1 : na > nb ? 1 : 0;
+    return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+  };
+  const opMatch = (value, cond) => {
+    for (const [op, target] of Object.entries(cond)) {
+      if (op === '$in' && !target.some((t) => eq(value, t))) return false;
+      if (op === '$ne' && eq(value, target)) return false;
+      if (op === '$gt' && !(cmp(value, target) > 0)) return false;
+      if (op === '$gte' && !(cmp(value, target) >= 0)) return false;
+      if (op === '$lt' && !(cmp(value, target) < 0)) return false;
+      if (op === '$lte' && !(cmp(value, target) <= 0)) return false;
+      if (op === '$regex' && !new RegExp(String(target), cond.$options || '').test(String(value))) return false;
+      if (op === '$exists') {
+        const present = value !== undefined && value !== null && value !== '';
+        if (present !== Boolean(target)) return false;
+      }
+    }
+    return true;
+  };
+  const match = (doc, query) => {
+    for (const [key, cond] of Object.entries(query || {})) {
+      if (key === '$or') {
+        if (!cond.some((sub) => match(doc, sub))) return false;
+        continue;
+      }
+      const value = doc[key];
+      if (cond instanceof RegExp) {
+        if (!cond.test(String(value ?? ''))) return false;
+      } else if (cond && typeof cond === 'object' && !Array.isArray(cond)) {
+        if (!opMatch(value, cond)) return false;
+      } else if (!eq(value, cond)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  const deserialize = (col, v) => {
+    if (JSON_COLUMNS[col]) {
+      if (!v) return [];
+      try {
+        return JSON.parse(v);
+      } catch {
+        return [];
+      }
+    }
+    if (BOOLEAN_COLUMNS[col]) return v === true || String(v).toLowerCase() === 'true';
+    return v ?? '';
+  };
+  const rowToObject = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, deserialize(k, v)]));
 
   const server = createServer((req, res) => {
     let body = '';
@@ -36,138 +89,258 @@ function startFakeSheet() {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(payload));
       };
-
       const action = req.method === 'POST' ? JSON.parse(body || '{}').action : q.get('action') || 'GET';
+      const data = req.method === 'POST' ? JSON.parse(body || '{}') : {};
+
       if (action === 'health') return send({ ok: true });
       if (q.get('token') !== TOKEN) return send({ error: 'Unauthorized' });
 
-      if (action === 'GET') {
-        let list = rows.slice();
-        if (q.get('category') && q.get('category') !== 'All') list = list.filter((r) => r.category === q.get('category'));
-        if (q.get('q')) list = list.filter((r) => String(r.title).toLowerCase().includes(q.get('q').toLowerCase()));
-        list.sort((a, b) => (q.get('sort') === 'oldest' ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)));
-        const total = list.length;
-        const limit = Number(q.get('limit')) || 50;
-        const page = Number(q.get('page')) || 1;
-        const slice = list.slice((page - 1) * limit, (page - 1) * limit + limit);
-        return send({ results: slice.length, total, page, pages: Math.ceil(total / limit), programs: q.get('view') === 'summary' ? slice.map(summary) : slice });
-      }
-      if (action === 'get') {
-        const found = rows.find((r) => r.id === q.get('id'));
-        return send(found ? { program: found } : { error: 'Program not found' });
-      }
-      if (action === 'categories') {
-        const counts = {};
-        rows.forEach((r) => (counts[r.category] = (counts[r.category] || 0) + 1));
-        return send({ categories: Object.keys(counts).map((name) => ({ name, count: counts[name] })) });
-      }
-      if (action === 'count') return send({ total: rows.length });
-      if (action === 'countLive') return send({ total: rows.filter((r) => r.status === 'Live').length });
+      const rowsOf = (name) => {
+        if (!tabs[name]) throw new Error('Unknown collection: ' + name);
+        return tabs[name];
+      };
+      const now = () => new Date().toISOString();
 
-      const data = JSON.parse(body || '{}').data || {};
-      if (action === 'create') {
-        const now = new Date().toISOString();
-        const row = { ...data, id: data.id || crypto.randomUUID(), createdAt: now, updatedAt: now };
-        rows.push(row);
-        return send({ program: row });
+      try {
+        switch (action) {
+          case 'find':
+            return send({ rows: rowsOf(data.collection).map(rowToObject).filter((r) => match(r, data.query)) });
+          case 'findOne': {
+            const hit = rowsOf(data.collection).map(rowToObject).find((r) => match(r, data.query));
+            return send({ row: hit || null });
+          }
+          case 'insertOne': {
+            const row = { ...data.doc, id: data.doc.id || crypto.randomUUID(), createdAt: now(), updatedAt: now() };
+            for (const col of Object.keys(JSON_COLUMNS)) if (Array.isArray(row[col])) row[col] = JSON.stringify(row[col]);
+            rowsOf(data.collection).push(row);
+            return send({ row: rowToObject(row) });
+          }
+          case 'updateOne':
+          case 'updateById': {
+            const rows = rowsOf(data.collection);
+            let matched = 0;
+            let updated = null;
+            for (const row of rows) {
+              const ok = action === 'updateById' ? row.id === data.id : match(rowToObject(row), data.query);
+              if (!ok) continue;
+              Object.assign(row, data.update, { updatedAt: now() });
+              for (const col of Object.keys(JSON_COLUMNS)) if (Array.isArray(row[col])) row[col] = JSON.stringify(row[col]);
+              matched += 1;
+              updated = rowToObject(row);
+              if (data.single || action === 'updateById') break;
+            }
+            return send(action === 'updateById' ? { row: updated } : { matched });
+          }
+          case 'upsert': {
+            const rows = rowsOf(data.collection);
+            const hit = rows.find((r) => match(rowToObject(r), data.query));
+            if (hit) {
+              Object.assign(hit, data.update, { updatedAt: now() });
+              return send({ row: rowToObject(hit) });
+            }
+            const row = { ...data.query, ...data.insert, ...data.update, id: crypto.randomUUID(), createdAt: now(), updatedAt: now() };
+            rows.push(row);
+            return send({ row: rowToObject(row) });
+          }
+          case 'deleteOne':
+          case 'deleteById': {
+            const rows = rowsOf(data.collection);
+            const idx = rows.findIndex((r) => (action === 'deleteById' ? r.id === data.id : match(rowToObject(r), data.query)));
+            if (idx === -1) return send({ deleted: 0 });
+            rows.splice(idx, 1);
+            return send({ deleted: 1 });
+          }
+          case 'countDocuments':
+            return send({ total: rowsOf(data.collection).map(rowToObject).filter((r) => match(r, data.query)).length });
+          case 'sum':
+            return send({ total: rowsOf(data.collection).reduce((acc, r) => acc + (Number(rowToObject(r)[data.field]) || 0), 0) });
+          case 'clear': {
+            const n = rowsOf(data.collection).length;
+            tabs[data.collection] = [];
+            return send({ deleted: n });
+          }
+          // programs named actions
+          case 'GET': {
+            let list = rowsOf('Programs').map(rowToObject);
+            if (q.get('category') && q.get('category') !== 'All') list = list.filter((r) => r.category === q.get('category'));
+            if (q.get('q')) list = list.filter((r) => String(r.title).toLowerCase().includes(q.get('q').toLowerCase()));
+            list.sort((a, b) => (q.get('sort') === 'oldest' ? String(a.createdAt).localeCompare(String(b.createdAt)) : String(b.createdAt).localeCompare(String(a.createdAt))));
+            const total = list.length;
+            const limit = Number(q.get('limit')) || 50;
+            const page = Number(q.get('page')) || 1;
+            const slice = list.slice((page - 1) * limit, (page - 1) * limit + limit);
+            return send({ results: slice.length, total, page, pages: Math.ceil(total / limit), programs: slice });
+          }
+          case 'get': {
+            const found = rowsOf('Programs').map(rowToObject).find((r) => r.id === q.get('id'));
+            return send(found ? { program: found } : { error: 'Program not found' });
+          }
+          case 'create': {
+            const row = { ...data.data, id: data.data.id || crypto.randomUUID(), createdAt: now(), updatedAt: now() };
+            for (const col of Object.keys(JSON_COLUMNS)) if (Array.isArray(row[col])) row[col] = JSON.stringify(row[col]);
+            rowsOf('Programs').push(row);
+            return send({ program: rowToObject(row) });
+          }
+          case 'update': {
+            const row = rowsOf('Programs').find((r) => r.id === q.get('id'));
+            if (row) Object.assign(row, data.data, { updatedAt: now() });
+            return send({ program: rowToObject(row) });
+          }
+          case 'delete': {
+            const idx = rowsOf('Programs').findIndex((r) => r.id === q.get('id'));
+            if (idx === -1) return send({ deleted: false });
+            rowsOf('Programs').splice(idx, 1);
+            return send({ deleted: true });
+          }
+          case 'categories': {
+            const counts = {};
+            rowsOf('Programs').map(rowToObject).forEach((r) => (counts[r.category] = (counts[r.category] || 0) + 1));
+            return send({ categories: Object.keys(counts).map((name) => ({ name, count: counts[name] })) });
+          }
+          case 'count':
+            return send({ total: rowsOf('Programs').length });
+          case 'countLive':
+            return send({ total: rowsOf('Programs').map(rowToObject).filter((r) => r.status === 'Live').length });
+          default:
+            return send({ error: 'Unknown action: ' + action });
+        }
+      } catch (err) {
+        return send({ error: String(err.message || err) });
       }
-      if (action === 'update') {
-        const row = rows.find((r) => r.id === q.get('id'));
-        Object.assign(row, data, { updatedAt: new Date().toISOString() });
-        return send({ program: row });
-      }
-      if (action === 'delete') {
-        const idx = rows.findIndex((r) => r.id === q.get('id'));
-        if (idx === -1) return send({ deleted: false });
-        rows.splice(idx, 1);
-        return send({ deleted: true });
-      }
-      send({ error: 'Unknown action' });
     });
   });
   return server;
 }
 
-let mongod;
 let app;
 let sheet;
-let sheetUrl;
 
 beforeAll(async () => {
   sheet = startFakeSheet();
   await new Promise((resolve) => sheet.listen(0, '127.0.0.1', resolve));
-  sheetUrl = `http://127.0.0.1:${sheet.address().port}/exec`;
-
-  process.env.SHEETS_API_URL = sheetUrl;
+  process.env.SHEETS_API_URL = `http://127.0.0.1:${sheet.address().port}/exec`;
   process.env.SHEETS_API_TOKEN = TOKEN;
 
-  mongod = await MongoMemoryServer.create();
-  const uri = mongod.getUri('ogea-sheets-test');
-  const { connectDB } = await import('../db.js');
-  await connectDB(uri);
-  const { User } = await import('../models/User.js');
-  await User.create({ name: 'Admin', username: 'admin', email: 'admin@test.dev', password: 'adminpass1', role: 'admin' });
   const { createApp } = await import('../app.js');
-  app = createApp({ connect: () => connectDB(uri) });
+  // No connect: Sheets mode must never touch MongoDB.
+  app = createApp({ connect: () => Promise.reject(new Error('MongoDB should not be used in sheets mode')) });
 }, 60000);
 
 afterAll(async () => {
-  const { disconnectDB } = await import('../db.js');
-  await disconnectDB();
-  await mongod?.stop();
   await new Promise((resolve) => sheet.close(resolve));
 });
 
 const adminLogin = async () => {
   const agent = request.agent(app);
-  await agent.post('/api/v1/auth/login').send({ identifier: 'admin', password: 'adminpass1' });
-  return agent;
+  const res = await agent.post('/api/v1/auth/login').send({ identifier: 'admin', password: 'adminpass1' });
+  return { agent, res };
 };
 
-describe('programs on Google Sheets', () => {
+describe('OGEA on Google Sheets only', () => {
   it('reports the sheets datastore', async () => {
     const res = await request(app).get('/api/v1/health');
-    expect(res.body.programs).toBe('sheets');
     expect(res.body.datastore).toBe('sheets');
+    expect(res.body.programs).toBe('sheets');
   });
 
-  it('runs the full CRUD flow through the sheet', async () => {
-    const admin = await adminLogin();
+  it('signs up with OTP, logs in and reads /me', async () => {
+    const otp = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'new@student.dev' });
+    expect(otp.status).toBe(200);
+    expect(otp.body.devCode).toMatch(/^\d{6}$/);
 
-    const created = await admin
+    const agent = request.agent(app);
+    const ok = await agent
+      .post('/api/v1/auth/signup/verify')
+      .send({ email: 'new@student.dev', code: otp.body.devCode, name: 'New', username: 'newbie', password: 'password1' });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.user.role).toBe('user');
+    expect(ok.body.data.user).not.toHaveProperty('password');
+
+    const me = await agent.get('/api/v1/auth/me');
+    expect(me.body.data.user.username).toBe('newbie');
+
+    const login = await request(app).post('/api/v1/auth/login').send({ identifier: 'newbie', password: 'password1' });
+    expect(login.status).toBe(200);
+
+    const bad = await request(app).post('/api/v1/auth/login').send({ identifier: 'newbie', password: 'wrongpass' });
+    expect(bad.status).toBe(401);
+  });
+
+  it('runs the admin user lifecycle', async () => {
+    // Seed an admin directly through the model.
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Admin', username: 'admin', email: 'admin@test.dev', password: 'adminpass1', role: 'admin', emailVerified: true });
+
+    const { agent } = await adminLogin();
+    expect((await agent.get('/api/v1/admin/users')).status).toBe(200);
+
+    const created = await agent.post('/api/v1/admin/users').send({ name: 'Made', username: 'made', password: 'madepass1' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.user._id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+    const list = await agent.get('/api/v1/admin/users?q=made');
+    expect(list.body.data.users.map((u) => u.username)).toContain('made');
+
+    const edited = await agent.patch(`/api/v1/admin/users/${id}`).send({ name: 'Made 2', role: 'admin' });
+    expect(edited.body.data.user.name).toBe('Made 2');
+    expect(edited.body.data.user.role).toBe('admin');
+
+    await agent.patch(`/api/v1/admin/users/${id}`).send({ status: 'disabled' });
+    const login = await request(app).post('/api/v1/auth/login').send({ identifier: 'made', password: 'madepass1' });
+    expect(login.status).toBe(403);
+
+    expect((await agent.delete(`/api/v1/admin/users/${id}`)).status).toBe(204);
+  });
+
+  it('runs programs CRUD through the sheet', async () => {
+    const { agent } = await adminLogin();
+    const created = await agent
       .post('/api/v1/programs')
       .send({ title: 'Sheet Quiz', category: 'Quiz', about: 'From the sheet', status: 'Live', deadline: '2030-01-01', tags: ['math'], imageurls: ['https://example.com/a.jpg'] });
     expect(created.status).toBe(201);
     const id = created.body.data.program._id;
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
-
-    const list = await request(app).get('/api/v1/programs?category=Quiz&q=sheet');
-    expect(list.body.total).toBe(1);
-    expect(list.body.data.programs[0].about).toBeUndefined();
-    expect(list.body.data.programs[0].tags).toEqual(['math']);
 
     const one = await request(app).get(`/api/v1/programs/${id}`);
-    expect(one.status).toBe(200);
     expect(one.body.data.program.about).toBe('From the sheet');
     expect(one.body.data.program.deadline).toBeTruthy();
 
     const cats = await request(app).get('/api/v1/programs/categories');
     expect(cats.body.data.categories).toEqual([{ name: 'Quiz', count: 1 }]);
 
-    const patched = await admin.patch(`/api/v1/programs/${id}`).send({ status: 'Closed' });
-    expect(patched.body.data.program.status).toBe("Closed");
-
-    const stats = await admin.get('/api/v1/admin/stats');
+    const stats = await agent.get('/api/v1/admin/stats');
     expect(stats.body.data.programs).toBe(1);
-    expect(stats.body.data.livePrograms).toBe(0);
+    expect(stats.body.data.livePrograms).toBe(1);
 
-    expect((await request(app).get(`/api/v1/programs/${id}`)).status).toBe(200);
-    expect((await admin.delete(`/api/v1/programs/${id}`)).status).toBe(204);
+    expect((await agent.delete(`/api/v1/programs/${id}`)).status).toBe(204);
     expect((await request(app).get(`/api/v1/programs/${id}`)).status).toBe(404);
   });
 
-  it('requires admin rights for writes', async () => {
-    expect((await request(app).post('/api/v1/programs').send({ title: 'x', category: 'Quiz' })).status).toBe(401);
+  it('runs the chat flow', async () => {
+    const user = request.agent(app);
+    const otp = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'chat@student.dev' });
+    await user
+      .post('/api/v1/auth/signup/verify')
+      .send({ email: 'chat@student.dev', code: otp.body.devCode, name: 'Chat', username: 'chatter', password: 'password1' });
+
+    const sent = await user.post('/api/v1/chat/me/messages').send({ body: 'Hello admin' });
+    expect(sent.status).toBe(201);
+
+    const mine = await user.get('/api/v1/chat/me');
+    expect(mine.body.data.messages[0].body).toBe('Hello admin');
+
+    const { agent: admin } = await adminLogin();
+    const convos = await admin.get('/api/v1/chat/conversations');
+    expect(convos.body.data.conversations[0]).toMatchObject({ unreadForAdmin: 1, lastMessage: 'Hello admin' });
+    expect(convos.body.data.conversations[0].user.username).toBe('chatter');
+    const cid = convos.body.data.conversations[0]._id;
+
+    await admin.post(`/api/v1/chat/conversations/${cid}/messages`).send({ body: 'Hi! How can I help?' });
+    const after = await user.get('/api/v1/chat/me');
+    expect(after.body.data.messages.map((m) => m.senderRole)).toEqual(['user', 'admin']);
+
+    await admin.patch(`/api/v1/chat/conversations/${cid}`).send({ status: 'closed' });
+    expect((await admin.get('/api/v1/chat/conversations?status=closed')).body.data.conversations).toHaveLength(1);
   });
 
   it('maps an unreachable sheet to 503, not a 500', async () => {

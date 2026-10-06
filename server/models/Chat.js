@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { sheetsConfigured } from '../config.js';
+import { SheetsConversation, SheetsMessage } from '../sheets/models.js';
 
 const conversationSchema = new mongoose.Schema(
   {
@@ -24,5 +26,9 @@ const messageSchema = new mongoose.Schema(
 );
 messageSchema.index({ conversation: 1, createdAt: 1 });
 
-export const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
-export const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+const MongoConversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
+const MongoMessage = mongoose.models.Message || mongoose.model('Message', messageSchema);
+
+const useSheets = sheetsConfigured();
+export const Conversation = useSheets ? SheetsConversation : MongoConversation;
+export const Message = useSheets ? SheetsMessage : MongoMessage;

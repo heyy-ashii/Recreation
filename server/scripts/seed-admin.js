@@ -1,4 +1,6 @@
 // Usage: MONGODB_URI=... ADMIN_USERNAME=... ADMIN_PASSWORD=... [ADMIN_EMAIL=...] [ADMIN_NAME=...] npm run seed:admin
+// In Sheets mode set SHEETS_API_URL and SHEETS_API_TOKEN instead; MongoDB is not touched.
+import { sheetsConfigured } from '../config.js';
 import { connectDB, disconnectDB } from '../db.js';
 import { User } from '../models/User.js';
 
@@ -8,7 +10,8 @@ if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
   process.exit(1);
 }
 
-await connectDB();
+const usingSheets = sheetsConfigured();
+if (!usingSheets) await connectDB();
 const username = ADMIN_USERNAME.toLowerCase();
 let user = await User.findOne({ username }).select('+password');
 if (user) {
@@ -22,4 +25,4 @@ if (user) {
   user = await User.create({ name: ADMIN_NAME, username, email: ADMIN_EMAIL?.toLowerCase(), password: ADMIN_PASSWORD, role: 'admin', emailVerified: Boolean(ADMIN_EMAIL) });
   console.info(`Created admin "${username}".`);
 }
-await disconnectDB();
+if (!usingSheets) await disconnectDB();

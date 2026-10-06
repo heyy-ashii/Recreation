@@ -1,46 +1,38 @@
 /**
- * OGEA - Programs store on Google Sheets.
+ * OGEA - Google Sheets datastore.
  *
- * Deploy as a Web App and point the API's SHEETS_API_URL at the deployment URL.
- * The API talks to this script over JSON, so the Express routes and the
- * frontend keep the exact same contract they had with MongoDB.
+ * Serves the whole app (users, otps, conversations, messages, programs) over a
+ * JSON API. The Express API talks to this script, so the frontend contract is
+ * unchanged. MongoDB is not required.
+ *
+ * IMPORTANT: keep the spreadsheet itself PRIVATE (Share > Restricted). This
+ * script runs as the owner, so it can read the private sheet while the Web App
+ * stays reachable. The token below is what protects the data.
  *
  * SETUP (one time)
  *   1. Project Settings > Script properties, add:
- *        SHEETS_TOKEN  = a long random string (also set as SHEETS_API_TOKEN in the API .env)
- *   2. Run setup() once to create the "Programs" tab with the right headers.
+ *        SHEETS_TOKEN = a long random string (also set as SHEETS_API_TOKEN in the API .env)
+ *   2. Run setup() once to create every tab with the right headers.
  *   3. Deploy > New deployment > Web app
  *        Execute as: Me
  *        Who has access: Anyone
- *      (the token, not the URL, is what actually protects the data)
  *
  * The token is compared in constant time and never logged.
  */
 
-var PROGRAMS_SHEET = 'Programs';
+// Column order per tab. The Node layer maps these names to the shape it expects.
+var COLLECTIONS = {
+  Users: ['id', 'name', 'username', 'email', 'password', 'role', 'status', 'emailVerified', 'passwordChangedAt', 'lastLoginAt', 'failedLoginAttempts', 'lockUntil', 'createdAt', 'updatedAt'],
+  Otps: ['id', 'email', 'purpose', 'codeHash', 'attempts', 'expiresAt', 'createdAt', 'updatedAt'],
+  Conversations: ['id', 'user', 'status', 'lastMessage', 'lastMessageAt', 'unreadForAdmin', 'unreadForUser', 'createdAt', 'updatedAt'],
+  Messages: ['id', 'conversation', 'sender', 'senderRole', 'body', 'createdAt', 'updatedAt'],
+  Programs: ['id', 'title', 'organizer', 'type', 'category', 'venue', 'about', 'registrationLink', 'contact', 'imageurls', 'tags', 'status', 'deadline', 'eventDate', 'createdBy', 'createdAt', 'updatedAt'],
+};
 
-// Programs tab columns. The API maps these to the shape the frontend expects.
-var PROGRAM_COLUMNS = [
-  'id',
-  'title',
-  'organizer',
-  'type',
-  'category',
-  'venue',
-  'about',
-  'registrationLink',
-  'contact',
-  'imageurls',
-  'tags',
-  'status',
-  'deadline',
-  'eventDate',
-  'createdBy',
-  'createdAt',
-  'updatedAt',
-];
-
-var EDITABLE_COLUMNS = ['title', 'organizer', 'type', 'category', 'venue', 'about', 'registrationLink', 'contact', 'imageurls', 'tags', 'status', 'deadline', 'eventDate'];
+// Values that must stay JSON, not strings.
+var JSON_COLUMNS = { imageurls: true, tags: true };
+// Values that must be stored as booleans.
+var BOOLEAN_COLUMNS = { emailVerified: true };
 var PROGRAM_STATUSES = ['Live', 'Recent', 'Closed'];
 
 /* ------------------------------------------------------------------ */
@@ -49,13 +41,16 @@ var PROGRAM_STATUSES = ['Live', 'Recent', 'Closed'];
 
 function setup() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(PROGRAMS_SHEET) || ss.insertSheet(PROGRAMS_SHEET);
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, PROGRAM_COLUMNS.length).setValues([PROGRAM_COLUMNS]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, PROGRAM_COLUMNS.length).setFontWeight('bold');
-  }
-  return 'Programs tab ready';
+  Object.keys(COLLECTIONS).forEach(function (name) {
+    var columns = COLLECTIONS[name];
+    var sheet = ss.getSheetByName(name) || ss.insertSheet(name);
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, columns.length).setValues([columns]);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, columns.length).setFontWeight('bold');
+    }
+  });
+  return 'Tabs ready: ' + Object.keys(COLLECTIONS).join(', ');
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,33 +74,33 @@ function doPost(e) {
 function handle_(e, action, body) {
   var params = (e && e.parameter) || {};
 
-  if (action === 'GET' && params.action === 'health') {
-    return json_({ ok: true, sheet: PROGRAMS_SHEET });
-  }
-  if (!isAuthorized_(params.token)) {
-    return json_({ error: 'Unauthorized' });
-  }
+  if (action === 'health') return json_({ ok: true, collections: Object.keys(COLLECTIONS) });
+  if (!isAuthorized_(params.token)) return json_({ error: 'Unauthorized' });
 
   try {
     switch (action) {
-      case 'GET':
-        return json_(listPrograms_(params));
-      case 'get':
-        return json_(getProgram_(params.id));
-      case 'create':
-        return json_(createProgram_(body.data));
-      case 'update':
-        return json_(updateProgram_(params.id || body.id, body.data));
-      case 'delete':
-        return json_({ deleted: deleteProgram_(params.id || body.id) });
-      case 'count':
-        return json_({ total: readRows_().length });
-      case 'countLive':
-        return json_({ total: readRows_().filter(function (r) { return r.status === 'Live'; }).length });
-      case 'categories':
-        return json_(categoryCounts_());
-      default:
-        return json_({ error: 'Unknown action: ' + action });
+      // --- programs: named actions, kept for the existing client ---
+      case 'GET': return json_(listPrograms_(params));
+      case 'get': return json_(getProgram_(params.id));
+      case 'create': return json_(createProgram_(body.data));
+      case 'update': return json_(updateProgram_(params.id || body.id, body.data));
+      case 'delete': return json_({ deleted: deleteProgram_(params.id || body.id) });
+      case 'count': return json_({ total: readRows_('Programs').length });
+      case 'countLive': return json_({ total: readRows_('Programs').filter(function (r) { return r.status === 'Live'; }).length });
+      case 'categories': return json_(categoryCounts_());
+      // --- generic collection actions ---
+      case 'find': return json_({ rows: find_(body) });
+      case 'findOne': return json_({ row: findOne_(body) });
+      case 'insertOne': return json_({ row: insertOne_(body) });
+      case 'updateOne': return json_({ matched: updateOne_(body) });
+      case 'updateById': return json_({ row: updateById_(body) });
+      case 'upsert': return json_({ row: upsert_(body) });
+      case 'deleteOne': return json_({ deleted: deleteOne_(body) });
+      case 'deleteById': return json_({ deleted: deleteById_(body) });
+      case 'countDocuments': return json_({ total: find_(body).length });
+      case 'sum': return json_({ total: sum_(body) });
+      case 'clear': return json_({ deleted: clear_(body) });
+      default: return json_({ error: 'Unknown action: ' + action });
     }
   } catch (err) {
     return json_({ error: String(err && err.message ? err.message : err) });
@@ -113,18 +108,241 @@ function handle_(e, action, body) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Operations                                                          */
+/* Generic collection operations                                       */
+/* ------------------------------------------------------------------ */
+
+function find_(body) {
+  return readRows_(body.collection).filter(function (row) { return match_(row, body.query || {}); });
+}
+
+function findOne_(body) {
+  var rows = find_(body);
+  return rows.length ? rows[0] : null;
+}
+
+function insertOne_(body) {
+  var name = body.collection;
+  var now = new Date().toISOString();
+  var doc = normalize_(name, body.doc || {});
+  if (!doc.id) doc.id = Utilities.getUuid();
+  if (!doc.createdAt) doc.createdAt = now;
+  doc.updatedAt = now;
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    sheetFor_(name).appendRow(columns_(name).map(function (col) { return serialize_(col, doc[col]); }));
+  } finally {
+    lock.releaseLock();
+  }
+  return doc;
+}
+
+function updateOne_(body) {
+  var name = body.collection;
+  var patch = normalize_(name, body.update || {});
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var values = sheet.getDataRange().getValues();
+    var header = values[0];
+    var matched = 0;
+    for (var i = 1; i < values.length; i++) {
+      var row = rowToObject_(header, values[i]);
+      if (!match_(row, body.query || {})) continue;
+      matched += 1;
+      for (var key in patch) row[key] = patch[key];
+      row.updatedAt = new Date().toISOString();
+      sheet.getRange(i + 1, 1, 1, header.length).setValues([header.map(function (col) { return serialize_(col, row[col]); })]);
+      if (body.single) break;
+    }
+    return matched;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateById_(body) {
+  var name = body.collection;
+  var patch = normalize_(name, body.update || {});
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var values = sheet.getDataRange().getValues();
+    var header = values[0];
+    var idCol = header.indexOf('id');
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][idCol] !== body.id) continue;
+      var row = rowToObject_(header, values[i]);
+      for (var key in patch) row[key] = patch[key];
+      row.updatedAt = new Date().toISOString();
+      sheet.getRange(i + 1, 1, 1, header.length).setValues([header.map(function (col) { return serialize_(col, row[col]); })]);
+      return row;
+    }
+    return null;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function upsert_(body) {
+  var found = findOne_({ collection: body.collection, query: body.query || {} });
+  if (found) return updateById_({ collection: body.collection, id: found.id, update: body.update || {} });
+
+  var doc = {};
+  var sources = [body.query || {}, body.insert || {}, body.update || {}];
+  sources.forEach(function (src) {
+    for (var key in src) {
+      var v = src[key];
+      if (v !== null && typeof v === 'object' && !Array.isArray(v)) continue;
+      doc[key] = v;
+    }
+  });
+  return insertOne_({ collection: body.collection, doc: doc });
+}
+
+function deleteOne_(body) {
+  var name = body.collection;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var values = sheet.getDataRange().getValues();
+    var header = values[0];
+    for (var i = 1; i < values.length; i++) {
+      if (match_(rowToObject_(header, values[i]), body.query || {})) {
+        sheet.deleteRow(i + 1);
+        return 1;
+      }
+    }
+    return 0;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteById_(body) {
+  var name = body.collection;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var values = sheet.getDataRange().getValues();
+    var idCol = values[0].indexOf('id');
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][idCol] === body.id) {
+        sheet.deleteRow(i + 1);
+        return true;
+      }
+    }
+    return false;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function sum_(body) {
+  return find_({ collection: body.collection, query: body.query || {} })
+    .reduce(function (acc, row) { return acc + (Number(row[body.field]) || 0); }, 0);
+}
+
+function clear_(body) {
+  var name = body.collection;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var last = sheet.getLastRow();
+    if (last > 1) sheet.deleteRows(2, last - 1);
+    return Math.max(0, last - 1);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Query matching                                                      */
+/* ------------------------------------------------------------------ */
+
+function match_(doc, query) {
+  for (var key in query) {
+    var cond = query[key];
+    var value = doc[key];
+    if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) {
+      if (!opMatch_(value, cond)) return false;
+    } else if (!eq_(value, cond)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function opMatch_(value, cond) {
+  for (var op in cond) {
+    var target = cond[op];
+    if (op === '$in') {
+      if (!target.some(function (t) { return eq_(value, t); })) return false;
+    } else if (op === '$ne') {
+      if (eq_(value, target)) return false;
+    } else if (op === '$gt') {
+      if (!(compare_(value, target) > 0)) return false;
+    } else if (op === '$gte') {
+      if (!(compare_(value, target) >= 0)) return false;
+    } else if (op === '$lt') {
+      if (!(compare_(value, target) < 0)) return false;
+    } else if (op === '$lte') {
+      if (!(compare_(value, target) <= 0)) return false;
+    } else if (op === '$regex') {
+      if (!new RegExp(String(target), cond.$options || '').test(String(value))) return false;
+    } else if (op === '$exists') {
+      var present = value !== undefined && value !== null && value !== '';
+      if (present !== Boolean(target)) return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+function eq_(value, target) {
+  if (value === undefined || value === null) value = '';
+  if (target === undefined || target === null) target = '';
+  if (value instanceof Date) value = value.toISOString();
+  if (target instanceof Date) target = target.toISOString();
+  if (typeof value === 'boolean' || typeof target === 'boolean') return Boolean(value) === Boolean(target);
+  return String(value) === String(target);
+}
+
+function compare_(value, target) {
+  var a = asComparable_(value);
+  var b = asComparable_(target);
+  if (typeof a === 'number' && typeof b === 'number') return a < b ? -1 : a > b ? 1 : 0;
+  return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+}
+
+function asComparable_(v) {
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number') return v;
+  var s = String(v === undefined || v === null ? '' : v);
+  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    var t = Date.parse(s);
+    if (!isNaN(t)) return t;
+  }
+  return s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Programs (named actions)                                            */
 /* ------------------------------------------------------------------ */
 
 function listPrograms_(params) {
-  var rows = readRows_();
+  var rows = readRows_('Programs');
 
-  if (params.category && params.category !== 'All') {
-    rows = rows.filter(function (r) { return r.category === params.category; });
-  }
-  if (params.status) {
-    rows = rows.filter(function (r) { return r.status === params.status; });
-  }
+  if (params.category && params.category !== 'All') rows = rows.filter(function (r) { return r.category === params.category; });
+  if (params.status) rows = rows.filter(function (r) { return r.status === params.status; });
   if (params.q) {
     var needle = String(params.q).toLowerCase();
     rows = rows.filter(function (r) {
@@ -151,23 +369,20 @@ function listPrograms_(params) {
   var limit = Math.max(1, Math.min(100, Number(params.limit) || 50));
   var page = Math.max(1, Number(params.page) || 1);
   var slice = rows.slice((page - 1) * limit, (page - 1) * limit + limit);
-
-  if (params.view === 'summary') {
-    slice = slice.map(summary_);
-  }
+  if (params.view === 'summary') slice = slice.map(summary_);
   return { results: slice.length, total: total, page: page, pages: Math.ceil(total / limit), programs: slice };
 }
 
 function getProgram_(id) {
-  var found = readRows_().filter(function (r) { return r.id === id; })[0];
+  var found = readRows_('Programs').filter(function (r) { return r.id === id; })[0];
   if (!found) throw new Error('Program not found');
   return { program: found };
 }
 
 function createProgram_(data) {
-  validate_(data, false);
+  validateProgram_(data, false);
   var now = new Date().toISOString();
-  var row = normalize_(data);
+  var row = normalize_('Programs', data);
   row.id = (data && data.id) || Utilities.getUuid();
   row.createdAt = now;
   row.updatedAt = now;
@@ -175,7 +390,7 @@ function createProgram_(data) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    sheet_().appendRow(PROGRAM_COLUMNS.map(function (col) { return serialize_(col, row[col]); }));
+    sheetFor_('Programs').appendRow(columns_('Programs').map(function (col) { return serialize_(col, row[col]); }));
   } finally {
     lock.releaseLock();
   }
@@ -184,78 +399,54 @@ function createProgram_(data) {
 
 function updateProgram_(id, data) {
   if (!id) throw new Error('id is required');
-  validate_(data, true);
-
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = sheet_();
-    var rows = sheet.getDataRange().getValues();
-    var header = rows[0];
-    var idCol = header.indexOf('id');
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][idCol] === id) {
-        var current = rowToObject_(header, rows[i]);
-        var patch = normalize_(data);
-        for (var key in patch) {
-          if (patch[key] !== undefined) current[key] = patch[key];
-        }
-        current.updatedAt = new Date().toISOString();
-        sheet.getRange(i + 1, 1, 1, header.length).setValues([header.map(function (col) { return serialize_(col, current[col]); })]);
-        return { program: current };
-      }
-    }
-    throw new Error('Program not found');
-  } finally {
-    lock.releaseLock();
-  }
+  validateProgram_(data, true);
+  return { program: updateById_({ collection: 'Programs', id: id, update: data }) };
 }
 
 function deleteProgram_(id) {
   if (!id) throw new Error('id is required');
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = sheet_();
-    var rows = sheet.getDataRange().getValues();
-    var idCol = rows[0].indexOf('id');
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][idCol] === id) {
-        sheet.deleteRow(i + 1);
-        return true;
-      }
-    }
-    return false;
-  } finally {
-    lock.releaseLock();
-  }
+  return deleteById_({ collection: 'Programs', id: id });
 }
 
 function categoryCounts_() {
   var counts = {};
-  readRows_().forEach(function (r) {
+  readRows_('Programs').forEach(function (r) {
     if (!r.category) return;
     counts[r.category] = (counts[r.category] || 0) + 1;
   });
-  return {
-    categories: Object.keys(counts).map(function (name) {
-      return { name: name, count: counts[name] };
-    }),
-  };
+  return { categories: Object.keys(counts).map(function (name) { return { name: name, count: counts[name] }; }) };
+}
+
+function validateProgram_(data, partial) {
+  data = data || {};
+  if (!partial) {
+    if (!data.title || !String(data.title).trim()) throw new Error('title is required');
+    if (!data.category || !String(data.category).trim()) throw new Error('category is required');
+  }
+  if (data.status && PROGRAM_STATUSES.indexOf(data.status) === -1) {
+    throw new Error('status must be one of ' + PROGRAM_STATUSES.join(', '));
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /* Sheet <-> object helpers                                            */
 /* ------------------------------------------------------------------ */
 
-function sheet_() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROGRAMS_SHEET);
-  if (!sheet) throw new Error('Missing "' + PROGRAMS_SHEET + '" tab. Run setup() once.');
+function columns_(name) {
+  var columns = COLLECTIONS[name];
+  if (!columns) throw new Error('Unknown collection: ' + name);
+  return columns;
+}
+
+function sheetFor_(name) {
+  columns_(name);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  if (!sheet) throw new Error('Missing "' + name + '" tab. Run setup() once.');
   return sheet;
 }
 
-function readRows_() {
-  var values = sheet_().getDataRange().getValues();
+function readRows_(name) {
+  var values = sheetFor_(name).getDataRange().getValues();
   if (values.length < 2) return [];
   var header = values[0];
   var idCol = header.indexOf('id');
@@ -270,42 +461,27 @@ function rowToObject_(header, row) {
   return obj;
 }
 
-function normalize_(data) {
+function normalize_(name, data) {
   data = data || {};
   var out = {};
-  EDITABLE_COLUMNS.forEach(function (col) {
+  columns_(name).forEach(function (col) {
+    if (col === 'id' || col === 'createdAt' || col === 'updatedAt') return;
     if (data[col] === undefined) return;
-    if (col === 'imageurls' || col === 'tags') {
-      out[col] = (Array.isArray(data[col]) ? data[col] : []).filter(Boolean).map(String);
-    } else if (col === 'deadline' || col === 'eventDate') {
-      out[col] = data[col] ? new Date(data[col]).toISOString() : '';
-    } else {
-      out[col] = String(data[col]);
-    }
+    out[col] = data[col];
   });
   return out;
 }
 
-function validate_(data, partial) {
-  data = data || {};
-  if (!partial) {
-    if (!data.title || !String(data.title).trim()) throw new Error('title is required');
-    if (!data.category || !String(data.category).trim()) throw new Error('category is required');
-  }
-  if (data.status && PROGRAM_STATUSES.indexOf(data.status) === -1) {
-    throw new Error('status must be one of ' + PROGRAM_STATUSES.join(', '));
-  }
-}
-
 function serialize_(col, value) {
   if (value === undefined || value === null) return '';
-  if (col === 'imageurls' || col === 'tags') return JSON.stringify(value || []);
+  if (JSON_COLUMNS[col]) return JSON.stringify(value || []);
+  if (BOOLEAN_COLUMNS[col]) return Boolean(value);
   if (value instanceof Date) return value.toISOString();
   return value;
 }
 
 function deserialize_(col, value) {
-  if (col === 'imageurls' || col === 'tags') {
+  if (JSON_COLUMNS[col]) {
     if (!value) return [];
     try {
       var parsed = JSON.parse(value);
@@ -314,8 +490,12 @@ function deserialize_(col, value) {
       return String(value).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     }
   }
+  if (BOOLEAN_COLUMNS[col]) {
+    if (value === '' || value === null || value === undefined) return false;
+    return value === true || String(value).toLowerCase() === 'true';
+  }
   if (value instanceof Date) return value.toISOString();
-  if (value === '' || value === null) return col === 'status' ? 'Live' : '';
+  if (value === '' || value === null) return '';
   return value;
 }
 

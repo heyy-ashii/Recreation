@@ -49,10 +49,12 @@ export function createApp({ connect = connectDB } = {}) {
   );
 
   app.use('/api', apiLimiter);
+  // MongoDB is only connected when it is the datastore; in Sheets mode there is nothing to connect.
+  const ensureStore = sheetsConfigured() ? async () => {} : connect;
   app.use(
     '/api',
     asyncHandler(async (_req, _res, next) => {
-      await connect();
+      await ensureStore();
       next();
     }),
   );

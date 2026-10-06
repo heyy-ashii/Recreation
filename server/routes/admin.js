@@ -4,6 +4,7 @@ import { protect, restrictTo } from '../middleware/auth.js';
 import { email, name, objectId, password, username, validate } from '../middleware/validate.js';
 import { Conversation, Message } from '../models/Chat.js';
 import { User } from '../models/User.js';
+import { publicUser } from '../sheets/models.js';
 import { getProgramsStore } from '../sheets/programsStore.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
@@ -56,7 +57,8 @@ router.get(
       User.find(filter)
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       User.countDocuments(filter),
     ]);
     res.json({
@@ -64,7 +66,7 @@ router.get(
       total,
       page,
       pages: Math.max(1, Math.ceil(total / limit)),
-      data: { users: users.map((u) => u.toPublicJSON()) },
+      data: { users: users.map((u) => (u.toPublicJSON ? u.toPublicJSON() : publicUser(u))) },
     });
   }),
 );
@@ -105,7 +107,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) throw new AppError('User not found', 404);
-    const isSelf = user._id.equals(req.user._id);
+    const isSelf = String(user._id) === String(req.user._id);
     if (isSelf && (req.body.role === 'user' || req.body.status === 'disabled')) {
       throw new AppError('You cannot demote or disable your own account', 400);
     }
@@ -128,7 +130,7 @@ router.delete(
   '/users/:id',
   validate(z.object({ id: objectId }), 'params'),
   asyncHandler(async (req, res) => {
-    if (req.user._id.equals(req.params.id)) throw new AppError('You cannot delete your own account', 400);
+    if (String(req.user._id) === String(req.params.id)) throw new AppError('You cannot delete your own account', 400);
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) throw new AppError('User not found', 404);
     const convo = await Conversation.findOneAndDelete({ user: user._id });
