@@ -11,7 +11,9 @@ import { Spinner } from './ui'
 
 export function MessageList({ messages, mine }: { messages: ChatMessage[]; mine: 'user' | 'admin' }) {
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [messages.length])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [messages.length])
   return (
     <div className="flex flex-col gap-2">
       {messages.map((m) => (
