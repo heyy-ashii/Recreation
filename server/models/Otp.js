@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
-import { sheetsConfigured } from '../config.js';
+import { datastore } from '../config.js';
 import { SheetsOtp } from '../sheets/models.js';
+import { SupabaseOtp } from '../supabase/models.js';
 
 const otpSchema = new mongoose.Schema(
   {
@@ -18,4 +19,4 @@ otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const MongoOtp = mongoose.models.Otp || mongoose.model('Otp', otpSchema);
 
-export const Otp = sheetsConfigured() ? SheetsOtp : MongoOtp;
+export const Otp = datastore() === 'supabase' ? SupabaseOtp : datastore() === 'sheets' ? SheetsOtp : MongoOtp;

@@ -1,7 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
-import { config, sheetsConfigured } from './config.js';
+import { config, datastore } from './config.js';
 import { connectDB } from './db.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { apiLimiter } from './middleware/rateLimit.js';
@@ -43,14 +43,15 @@ export function createApp({ connect = connectDB } = {}) {
     res.json({
       status: 'success',
       message: 'OGEA API running',
-      datastore: sheetsConfigured() ? 'sheets' : 'mongo',
+      datastore: datastore(),
       programs: getProgramsStore().driver,
     }),
   );
 
   app.use('/api', apiLimiter);
-  // MongoDB is only connected when it is the datastore; in Sheets mode there is nothing to connect.
-  const ensureStore = sheetsConfigured() ? async () => {} : connect;
+  // MongoDB is only connected when it is the datastore; Sheets and Supabase
+  // connect lazily on first query.
+  const ensureStore = datastore() === 'mongo' ? connect : async () => {};
   app.use(
     '/api',
     asyncHandler(async (_req, _res, next) => {

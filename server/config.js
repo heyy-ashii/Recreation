@@ -39,6 +39,17 @@ export const config = {
     apiToken: env.SHEETS_API_TOKEN || '',
     timeoutMs: Number(env.SHEETS_TIMEOUT_MS) || 8000,
   },
+  supabase: {
+    url: env.SUPABASE_URL || '',
+    publishableKey: env.SUPABASE_PUBLISHABLE_KEY || '',
+    // Bypasses RLS. Server-side only; never ship this to the browser.
+    secretKey: env.SUPABASE_SECRET_KEY || '',
+    jwksUrl: env.SUPABASE_JWKS_URL || '',
+    // Optional direct Postgres connection string. When set, the Supabase
+    // driver talks SQL over pg instead of HTTP through PostgREST.
+    dbUrl: env.SUPABASE_DB_URL || '',
+    timeoutMs: Number(env.SUPABASE_TIMEOUT_MS) || 10000,
+  },
   otp: {
     ttlMinutes: 10,
     maxAttempts: 5,
@@ -54,3 +65,13 @@ export const emailConfigured = () => Boolean(config.smtp.host && config.smtp.use
 export const cloudinaryConfigured = () =>
   Boolean(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
 export const sheetsConfigured = () => Boolean(config.sheets.apiUrl && config.sheets.apiToken);
+
+// The Supabase driver talks to Postgres, so SUPABASE_DB_URL is what enables it.
+// SUPABASE_SECRET_KEY alone is not enough: PostgREST cannot run DDL, and the
+// secret key is only needed later if we add the REST transport or Supabase Auth.
+export const supabaseConfigured = () => Boolean(config.supabase.url && config.supabase.dbUrl);
+
+// The datastore the models use. Supabase wins when configured, then Sheets,
+// then MongoDB. Set SUPABASE_DB_URL to switch over; remove it to fall back.
+export const datastore = () =>
+  supabaseConfigured() ? 'supabase' : sheetsConfigured() ? 'sheets' : 'mongo';

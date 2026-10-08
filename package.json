@@ -14,9 +14,12 @@
     "test": "vitest run",
     "seed:admin": "node server/scripts/seed-admin.js",
     "import:programs": "node server/scripts/import-programs.js",
-    "sheets:sync": "node server/scripts/sheets-sync.js"
+    "sheets:sync": "node server/scripts/sheets-sync.js",
+    "supabase:apply": "node server/scripts/supabase-apply-schema.js"
   },
   "dependencies": {
+    "@supabase/server": "^1.9.1",
+    "@supabase/supabase-js": "^2.117.3",
     "@tanstack/react-query": "^5.104.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
@@ -31,6 +34,7 @@
     "mongoose": "^9.10.4",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.15",
+    "pg": "^8.23.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",

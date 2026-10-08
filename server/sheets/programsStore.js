@@ -1,5 +1,6 @@
-import { sheetsConfigured } from '../config.js';
+import { datastore } from '../config.js';
 import { Program } from '../models/Program.js';
+import { supabaseProgramsStore } from '../supabase/programsStore.js';
 import { AppError } from '../utils/AppError.js';
 import { sheetsClient } from './client.js';
 
@@ -124,6 +125,8 @@ export const sheetsProgramsStore = {
 };
 
 export function getProgramsStore() {
-  return sheetsConfigured() ? sheetsProgramsStore : mongoProgramsStore;
+  const active = datastore();
+  if (active === 'supabase') return supabaseProgramsStore;
+  return active === 'sheets' ? sheetsProgramsStore : mongoProgramsStore;
 }
 

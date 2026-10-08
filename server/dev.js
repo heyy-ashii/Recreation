@@ -1,10 +1,11 @@
-import { config, sheetsConfigured } from './config.js';
+import { config, datastore } from './config.js';
 import { connectDB } from './db.js';
 
 async function start() {
   let uri = config.mongoUri;
-  if (sheetsConfigured()) {
-    console.info('[dev] SHEETS_API_URL set - using the Google Sheet as the datastore (no MongoDB)');
+  const active = datastore();
+  if (active !== 'mongo') {
+    console.info(`[dev] using the ${active} datastore (no MongoDB)`);
     if (process.env.SEED_DEV === 'true') {
       const { seedDev } = await import('./scripts/dev-seed.js');
       await seedDev();
