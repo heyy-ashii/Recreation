@@ -7,6 +7,13 @@ if (isProd && !env.JWT_SECRET) {
   throw new Error('JWT_SECRET must be set in production');
 }
 
+// Guard rail: the test suite truncates tables on startup, so it must never point
+// at a hosted database. A stray SUPABASE_DB_URL in .env would let a test run wipe
+// production data.
+if (env.NODE_ENV === 'test' && env.SUPABASE_DB_URL && !/@(127\.0\.0\.1|localhost|\[::1\])(:|\/)/.test(env.SUPABASE_DB_URL)) {
+  throw new Error('Refusing to run tests against a non-local SUPABASE_DB_URL');
+}
+
 export const config = {
   isProd,
   isTest: env.NODE_ENV === 'test',

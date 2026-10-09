@@ -4,6 +4,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 process.env.NODE_ENV = 'test';
 process.env.ROSTER_CSV = 'AD.NO,NAME,PHONE,EMAIL\n3411,New Student,,\n9999,Lock User,,\n';
+// This suite runs on the in-memory MongoDB. Blank the other datastore settings
+// that .env may carry so tests never reach a hosted database. Empty strings are
+// used deliberately: dotenv does not override keys that already exist.
+process.env.SUPABASE_URL = '';
+process.env.SUPABASE_DB_URL = '';
+process.env.SHEETS_API_URL = '';
+process.env.SHEETS_API_TOKEN = '';
 
 let mongod;
 let app;

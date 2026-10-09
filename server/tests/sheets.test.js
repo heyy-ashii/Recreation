@@ -4,6 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 process.env.NODE_ENV = 'test';
 process.env.ROSTER_CSV = 'AD.NO,NAME,PHONE,EMAIL\n3411,New Student,,\n3412,Chat Student,,\n';
+// This suite runs on the fake in-process Sheets API. Blank the Supabase settings
+// that .env may carry: datastore() prefers Supabase, which would send the tests
+// to a hosted database. Empty strings are deliberate; dotenv keeps existing keys.
+process.env.SUPABASE_URL = '';
+process.env.SUPABASE_DB_URL = '';
 
 const TOKEN = 'test-sheets-token';
 
