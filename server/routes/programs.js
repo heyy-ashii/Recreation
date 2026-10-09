@@ -1,14 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { protect, restrictTo } from '../middleware/auth.js';
-import { objectId, validate } from '../middleware/validate.js';
-import { Program, PROGRAM_STATUSES } from '../models/Program.js';
+import { programId, validate } from '../middleware/validate.js';
+import { PROGRAM_STATUSES } from '../models/Program.js';
+import { getProgramsStore } from '../sheets/programsStore.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
 const router = Router();
-
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const SUMMARY_FIELDS = 'title organizer type category venue imageurls tags status deadline eventDate createdAt';
 
 const listQuery = z.object({
   q: z.string().trim().max(100).optional(),
@@ -20,46 +18,30 @@ const listQuery = z.object({
   view: z.enum(['summary', 'full']).default('summary'),
 });
 
-const sorts = { newest: { createdAt: -1 }, oldest: { createdAt: 1 }, deadline: { deadline: 1, createdAt: -1 } };
-
 router.get(
   '/',
   validate(listQuery, 'query'),
   asyncHandler(async (req, res) => {
-    const { q, category, status, sort, page, limit, view } = req.validated.query;
-    const filter = {};
-    if (category && category !== 'All') filter.category = category;
-    if (status) filter.status = status;
-    if (q) {
-      const rx = new RegExp(escapeRegex(q), 'i');
-      filter.$or = [{ title: rx }, { organizer: rx }, { category: rx }, { type: rx }, { venue: rx }, { tags: rx }, { about: rx }];
-    }
-    const query = Program.find(filter)
-      .sort(sorts[sort])
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
-    if (view === 'summary') query.select(SUMMARY_FIELDS);
-    const [programs, total] = await Promise.all([query, Program.countDocuments(filter)]);
+    const payload = await getProgramsStore().list(req.validated.query);
     res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
-    res.json({ status: 'success', results: programs.length, total, page, pages: Math.ceil(total / limit), data: { programs } });
+    res.json({ status: 'success', ...payload, data: { programs: payload.programs } });
   }),
 );
 
 router.get(
   '/categories',
   asyncHandler(async (_req, res) => {
-    const rows = await Program.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } }]);
+    const categories = await getProgramsStore().categories();
     res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-    res.json({ status: 'success', data: { categories: rows.filter((r) => r._id).map((r) => ({ name: r._id, count: r.count })) } });
+    res.json({ status: 'success', data: { categories } });
   }),
 );
 
 router.get(
   '/:id',
-  validate(z.object({ id: objectId }), 'params'),
+  validate(z.object({ id: programId }), 'params'),
   asyncHandler(async (req, res) => {
-    const program = await Program.findById(req.params.id).lean();
+    const program = await getProgramsStore().findById(req.params.id);
     if (!program) throw new AppError('Program not found', 404);
     res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     res.json({ status: 'success', data: { program } });
@@ -94,7 +76,7 @@ router.post(
   restrictTo('admin'),
   validate(programBody),
   asyncHandler(async (req, res) => {
-    const program = await Program.create({ ...req.body, createdBy: req.user._id });
+    const program = await getProgramsStore().create(req.body, req.user._id);
     res.status(201).json({ status: 'success', data: { program } });
   }),
 );
@@ -103,10 +85,10 @@ router.patch(
   '/:id',
   protect,
   restrictTo('admin'),
-  validate(z.object({ id: objectId }), 'params'),
+  validate(z.object({ id: programId }), 'params'),
   validate(programBody.partial()),
   asyncHandler(async (req, res) => {
-    const program = await Program.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
+    const program = await getProgramsStore().update(req.params.id, req.body);
     if (!program) throw new AppError('Program not found', 404);
     res.json({ status: 'success', data: { program } });
   }),
@@ -116,10 +98,10 @@ router.delete(
   '/:id',
   protect,
   restrictTo('admin'),
-  validate(z.object({ id: objectId }), 'params'),
+  validate(z.object({ id: programId }), 'params'),
   asyncHandler(async (req, res) => {
-    const program = await Program.findByIdAndDelete(req.params.id);
-    if (!program) throw new AppError('Program not found', 404);
+    const removed = await getProgramsStore().remove(req.params.id);
+    if (!removed) throw new AppError('Program not found', 404);
     res.status(204).end();
   }),
 );

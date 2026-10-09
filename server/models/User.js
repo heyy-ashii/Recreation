@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import { datastore } from '../config.js';
+import { SheetsUser } from '../sheets/models.js';
+import { SupabaseUser } from '../supabase/models.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -47,4 +50,8 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
   };
 };
 
-export const User = mongoose.models.User || mongoose.model('User', userSchema);
+const MongoUser = mongoose.models.User || mongoose.model('User', userSchema);
+
+// Users live in MongoDB by default, in the Google Sheet when SHEETS_API_URL is
+// set, or in Supabase when SUPABASE_URL plus a secret key / SUPABASE_DB_URL are set.
+export const User = datastore() === 'supabase' ? SupabaseUser : datastore() === 'sheets' ? SheetsUser : MongoUser;

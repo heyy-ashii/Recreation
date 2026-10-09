@@ -1,7 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
-import { config } from './config.js';
+import { config, datastore } from './config.js';
 import { connectDB } from './db.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { apiLimiter } from './middleware/rateLimit.js';
@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import programRoutes from './routes/programs.js';
 import uploadRoutes from './routes/upload.js';
+import { getProgramsStore } from './sheets/programsStore.js';
 import { asyncHandler } from './utils/AppError.js';
 
 export function createApp({ connect = connectDB } = {}) {
@@ -38,13 +39,23 @@ export function createApp({ connect = connectDB } = {}) {
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
-  app.get('/api/v1/health', (_req, res) => res.json({ status: 'success', message: 'OGEA API running' }));
+  app.get('/api/v1/health', (_req, res) =>
+    res.json({
+      status: 'success',
+      message: 'OGEA API running',
+      datastore: datastore(),
+      programs: getProgramsStore().driver,
+    }),
+  );
 
   app.use('/api', apiLimiter);
+  // MongoDB is only connected when it is the datastore; Sheets and Supabase
+  // connect lazily on first query.
+  const ensureStore = datastore() === 'mongo' ? connect : async () => {};
   app.use(
     '/api',
     asyncHandler(async (_req, _res, next) => {
-      await connect();
+      await ensureStore();
       next();
     }),
   );

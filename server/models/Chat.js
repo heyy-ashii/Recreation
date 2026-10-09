@@ -1,4 +1,7 @@
 import mongoose from 'mongoose';
+import { datastore } from '../config.js';
+import { SheetsConversation, SheetsMessage } from '../sheets/models.js';
+import { SupabaseConversation, SupabaseMessage } from '../supabase/models.js';
 
 const conversationSchema = new mongoose.Schema(
   {
@@ -24,5 +27,9 @@ const messageSchema = new mongoose.Schema(
 );
 messageSchema.index({ conversation: 1, createdAt: 1 });
 
-export const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
-export const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+const MongoConversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
+const MongoMessage = mongoose.models.Message || mongoose.model('Message', messageSchema);
+
+const active = datastore();
+export const Conversation = active === 'supabase' ? SupabaseConversation : active === 'sheets' ? SheetsConversation : MongoConversation;
+export const Message = active === 'supabase' ? SupabaseMessage : active === 'sheets' ? SheetsMessage : MongoMessage;

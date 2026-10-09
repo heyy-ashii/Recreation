@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { protect, restrictTo } from '../middleware/auth.js';
 import { email, name, objectId, password, username, validate } from '../middleware/validate.js';
 import { Conversation, Message } from '../models/Chat.js';
-import { Program } from '../models/Program.js';
 import { User } from '../models/User.js';
+import { publicUser } from '../sheets/models.js';
+import { getProgramsStore } from '../sheets/programsStore.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
 const router = Router();
@@ -15,18 +16,19 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 router.get(
   '/stats',
   asyncHandler(async (_req, res) => {
-    const [users, admins, disabled, programs, livePrograms, openChats, unread] = await Promise.all([
+    const programs = getProgramsStore();
+    const [users, admins, disabled, totalPrograms, livePrograms, openChats, unread] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'admin' }),
       User.countDocuments({ status: 'disabled' }),
-      Program.countDocuments(),
-      Program.countDocuments({ status: 'Live' }),
+      programs.count(),
+      programs.countLive(),
       Conversation.countDocuments({ status: 'open' }),
       Conversation.aggregate([{ $group: { _id: null, total: { $sum: '$unreadForAdmin' } } }]),
     ]);
     res.json({
       status: 'success',
-      data: { users, admins, disabled, programs, livePrograms, openChats, unreadMessages: unread[0]?.total ?? 0 },
+      data: { users, admins, disabled, programs: totalPrograms, livePrograms, openChats, unreadMessages: unread[0]?.total ?? 0 },
     });
   }),
 );
@@ -55,7 +57,8 @@ router.get(
       User.find(filter)
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       User.countDocuments(filter),
     ]);
     res.json({
@@ -63,7 +66,7 @@ router.get(
       total,
       page,
       pages: Math.max(1, Math.ceil(total / limit)),
-      data: { users: users.map((u) => u.toPublicJSON()) },
+      data: { users: users.map((u) => (u.toPublicJSON ? u.toPublicJSON() : publicUser(u))) },
     });
   }),
 );
@@ -104,7 +107,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) throw new AppError('User not found', 404);
-    const isSelf = user._id.equals(req.user._id);
+    const isSelf = String(user._id) === String(req.user._id);
     if (isSelf && (req.body.role === 'user' || req.body.status === 'disabled')) {
       throw new AppError('You cannot demote or disable your own account', 400);
     }
@@ -127,7 +130,7 @@ router.delete(
   '/users/:id',
   validate(z.object({ id: objectId }), 'params'),
   asyncHandler(async (req, res) => {
-    if (req.user._id.equals(req.params.id)) throw new AppError('You cannot delete your own account', 400);
+    if (String(req.user._id) === String(req.params.id)) throw new AppError('You cannot delete your own account', 400);
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) throw new AppError('User not found', 404);
     const convo = await Conversation.findOneAndDelete({ user: user._id });

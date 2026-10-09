@@ -1,0 +1,74 @@
+# AGENTS.md
+
+## Project
+
+OGEA – "Opportunities Beyond Campus". React (Vite) frontend + Express API.
+Frontend in `src/`, API in `server/`, Vercel serverless entry in `api/index.js`.
+
+## Commands
+
+- `npm run dev` – API (:4000) + Vite (:5173) together
+- `npm test` – vitest (spins up an in-memory MongoDB)
+- `npm run lint` / `npm run typecheck` / `npm run build`
+- `npm run seed:admin` – needs `ADMIN_USERNAME` and `ADMIN_PASSWORD`
+- `npm run sheets:sync` – copy programs from MongoDB into the Google Sheet
+- `npm run supabase:apply` – apply `supabase/migrations/0001_init.sql` to `SUPABASE_DB_URL`
+
+## Data layer
+
+Three interchangeable datastores. One env var switches **everything** (users,
+OTPs, chats, messages, programs) and the others are not touched. Precedence is
+Supabase > Sheets > MongoDB, decided by `datastore()` in `server/config.js`.
+
+- MongoDB (default): Mongoose models in `server/models/`.
+- Google Sheets: set `SHEETS_API_URL` + `SHEETS_API_TOKEN`.
+- Supabase (Postgres): set `SUPABASE_DB_URL`. Tables are prefixed `app_` so they
+  never collide with Supabase's own schemas.
+
+The Sheets and Supabase drivers both mimic the Mongoose surface the routes use
+(`find`, `findOne`, `create`, `save`, `populate`, `aggregate`), so routes are
+driver-agnostic and models just pick an implementation:
+
+- `server/sheets/odm.js` + `server/sheets/models.js` — over an Apps Script Web App
+  (`google-apps-script/Code.gs`). `SheetsQuery` is shared: the Supabase ODM
+  reuses it for chainable `sort`/`skip`/`limit`/`lean`.
+- `server/supabase/odm.js` + `server/supabase/models.js` — over `pg`. Filters are
+  compiled to parameterised SQL in `server/supabase/sql.js`; the column maps in
+  `models.js` translate camelCase fields to snake_case columns.
+- Programs additionally have a named-action store (`server/sheets/programsStore.js`)
+  used by the programs routes; it returns `_id`, `status`, `imageurls`, `tags`,
+  pagination and search in the shape the frontend expects. The Supabase store
+  (`server/supabase/programsStore.js`) mirrors it.
+
+See `docs/google-sheets.md` and `docs/supabase.md`. Keep the spreadsheet
+**private** (Share ▸ Restricted): the Apps Script runs as its owner and reads it,
+and every request is gated by a constant-time `SHEETS_TOKEN` check. Password
+hashes and OTP codes are in the sheet, so link-sharing it would leak them. The
+Supabase migration enables RLS with no policies, so the publishable key can read
+nothing; the backend connects directly as Postgres, which bypasses RLS.
+
+## Conventions
+
+- API responses: `{ status, data }`; errors via `AppError` (operational → its
+  status code, otherwise a generic 500 with no internals leaked).
+- IDs: Mongo ObjectIds under MongoDB; the Sheet and Supabase use UUIDs, so
+  validators accept either (`objectId` and `programId` in
+  `server/middleware/validate.js`).
+- Compare ids with `String(a) === String(b)`, never `a.equals(b)` — the Sheets
+  and Supabase drivers return plain strings.
+- The Sheets and Supabase ODMs apply schema defaults (`spec.defaults`) and must
+  resolve `findOne`/`findById` to a single document, not an array.
+- Postgres needs `returning *` **after** any `on conflict` clause.
+- Tests live in `server/tests/`; `sheets.test.js` runs the full app against a
+  local in-memory fake of the Apps Script protocol, with no MongoDB, and
+  `supabase.test.js` runs it against a real Postgres via `TEST_DATABASE_URL`
+  (skipped when unset).
+
+## Gotchas
+
+- Apps Script POSTs answer 302 to `script.googleusercontent.com`; Node's fetch
+  drops the body on redirect, so the client re-POSTs. Keep that behaviour.
+- Frontend `useEffect` callbacks must not implicitly return a value that is not
+  a function (React throws "destroy is not a function").
+- The sandbox resets between sessions: Docker, MongoDB and the dev servers are
+  gone on return and must be restarted.
