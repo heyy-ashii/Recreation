@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 process.env.NODE_ENV = 'test';
+process.env.ROSTER_CSV = 'AD.NO,NAME,PHONE,EMAIL\n3411,New Student,,\n9999,Lock User,,\n';
 
 let mongod;
 let app;
@@ -32,38 +33,30 @@ const login = async (identifier, password) => {
 };
 
 describe('auth', () => {
-  it('signs up with email OTP and logs in', async () => {
-    const otp = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'New@Student.dev' });
-    expect(otp.status).toBe(200);
-    expect(otp.body.devCode).toMatch(/^\d{6}$/);
-
-    const again = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'new@student.dev' });
-    expect(again.status).toBe(429);
-
-    const wrong = await request(app)
-      .post('/api/v1/auth/signup/verify')
-      .send({ email: 'new@student.dev', code: otp.body.devCode === '000000' ? '111111' : '000000', name: 'New', username: 'newbie', password: 'password1' });
-    expect(wrong.status).toBe(400);
-
+  it('creates an account for a student on the roster', async () => {
     const agent = request.agent(app);
-    const ok = await agent
-      .post('/api/v1/auth/signup/verify')
-      .send({ email: 'new@student.dev', code: otp.body.devCode, name: 'New', username: 'newbie', password: 'password1', role: 'admin' });
+    const ok = await agent.post('/api/v1/auth/signup').send({ name: 'New Student', admissionNo: '3411' });
     expect(ok.status).toBe(201);
+    expect(ok.body.data.user.username).toBe('new.student');
     expect(ok.body.data.user.role).toBe('user');
     expect(ok.body.data.user).not.toHaveProperty('password');
     expect(ok.headers['set-cookie'][0]).toMatch(/HttpOnly/);
 
     const me = await agent.get('/api/v1/auth/me');
-    expect(me.body.data.user.username).toBe('newbie');
+    expect(me.body.data.user.username).toBe('new.student');
 
-    const reuse = await request(app)
-      .post('/api/v1/auth/signup/verify')
-      .send({ email: 'other@student.dev', code: otp.body.devCode, name: 'X', username: 'other', password: 'password1' });
-    expect(reuse.status).toBe(400);
+    // The admission number is the initial password.
+    expect((await login('new.student', '3411')).res.status).toBe(200);
 
-    const byEmail = await login('new@student.dev', 'password1');
-    expect(byEmail.res.status).toBe(200);
+    // A second signup for the same student is rejected.
+    expect((await request(app).post('/api/v1/auth/signup').send({ name: 'New Student', admissionNo: '3411' })).status).toBe(409);
+  });
+
+  it('rejects a name or admission number that is not on the roster', async () => {
+    const badName = await request(app).post('/api/v1/auth/signup').send({ name: 'Nobody Here', admissionNo: '3411' });
+    expect(badName.status).toBe(403);
+    const badAdNo = await request(app).post('/api/v1/auth/signup').send({ name: 'New Student', admissionNo: '1234' });
+    expect(badAdNo.status).toBe(403);
   });
 
   it('rejects bad credentials and locks after repeated failures', async () => {
@@ -77,6 +70,7 @@ describe('auth', () => {
   });
 
   it('resets password with OTP', async () => {
+    await User.create({ name: 'New', username: 'newbie', email: 'new@student.dev', password: '3411' });
     const req1 = await request(app).post('/api/v1/auth/password/request-otp').send({ email: 'new@student.dev' });
     expect(req1.body.devCode).toMatch(/^\d{6}$/);
     const reset = await request(app)

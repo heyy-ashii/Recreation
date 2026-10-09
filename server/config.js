@@ -55,6 +55,13 @@ export const config = {
     maxAttempts: 5,
     resendCooldownSeconds: 60,
   },
+  roster: {
+    // Public Google Sheet listing the students allowed to create an account.
+    sheetId: env.ROSTER_SHEET_ID || '104OzyflQpqmew1zUU-v4m1UGSaEr8jX5vHNor3xev_U',
+    cacheMinutes: Number(env.ROSTER_CACHE_MINUTES) || 10,
+    // Tests read the roster from this inline CSV instead of the network.
+    csv: env.ROSTER_CSV || '',
+  },
   login: {
     maxFailedAttempts: 5,
     lockMinutes: 15,

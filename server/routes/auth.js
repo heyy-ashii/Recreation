@@ -8,6 +8,7 @@ import { loginLimiter, otpLimiter } from '../middleware/rateLimit.js';
 import { email, name, password, username, validate } from '../middleware/validate.js';
 import { Otp } from '../models/Otp.js';
 import { User } from '../models/User.js';
+import { findStudent, usernameFromName } from '../roster.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 import { sendOtpEmail } from '../utils/email.js';
 import { clearAuth, sendAuth } from '../utils/tokens.js';
@@ -60,34 +61,35 @@ async function consumeOtp(emailAddress, purpose, code) {
 }
 
 const otpCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code');
+const admissionNo = z.string().trim().min(1, 'Enter your admission number').max(16);
 
+// The student list is the allow-list for account creation: a person may sign up
+// only when their name and admission number match a row. The username is derived
+// from their name and their admission number is the initial password.
 router.post(
-  '/signup/request-otp',
-  otpLimiter,
-  validate(z.object({ email })),
-  asyncHandler(async (req, res) => {
-    if (await User.exists({ email: req.body.email })) {
-      throw new AppError('An account with this email already exists. Please log in.', 409);
-    }
-    const devCode = await issueOtp(req.body.email, 'signup');
-    res.json({
-      status: 'success',
-      message: `We sent a 6-digit code to ${req.body.email}`,
-      ...(devCode ? { devCode } : {}),
-    });
-  }),
-);
-
-router.post(
-  '/signup/verify',
+  '/signup',
   loginLimiter,
-  validate(z.object({ email, code: otpCode, name, username, password })),
+  validate(z.object({ name, admissionNo })),
   asyncHandler(async (req, res) => {
-    const { email: emailAddress, code, ...rest } = req.body;
-    if (await User.exists({ email: emailAddress })) throw new AppError('An account with this email already exists', 409);
-    if (await User.exists({ username: rest.username })) throw new AppError('That username is already taken', 409);
-    await consumeOtp(emailAddress, 'signup', code);
-    const user = await User.create({ ...rest, email: emailAddress, emailVerified: true, role: 'user', lastLoginAt: new Date() });
+    const student = await findStudent(req.body.name, req.body.admissionNo);
+    if (!student) {
+      throw new AppError('That name and admission number are not on the student list. Check them, or contact the admin.', 403);
+    }
+    const username = usernameFromName(student.name);
+    if (username.length < 3) {
+      throw new AppError('We could not build a username from that name. Please contact the admin.', 422);
+    }
+    if (await User.exists({ username })) {
+      throw new AppError('An account already exists for this name. Log in with your admission number as the password.', 409);
+    }
+    const user = await User.create({
+      name: student.name,
+      username,
+      password: student.adNo,
+      role: 'user',
+      emailVerified: true,
+      lastLoginAt: new Date(),
+    });
     sendAuth(res, user, 201);
   }),
 );

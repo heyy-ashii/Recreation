@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 process.env.NODE_ENV = 'test';
+process.env.ROSTER_CSV = 'AD.NO,NAME,PHONE,EMAIL\n3411,New Student,,\n3412,Chat Student,,\n';
 
 const TOKEN = 'test-sheets-token';
 
@@ -243,27 +244,27 @@ describe('OGEA on Google Sheets only', () => {
     expect(res.body.programs).toBe('sheets');
   });
 
-  it('signs up with OTP, logs in and reads /me', async () => {
-    const otp = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'new@student.dev' });
-    expect(otp.status).toBe(200);
-    expect(otp.body.devCode).toMatch(/^\d{6}$/);
-
+  it('creates an account from the roster, logs in and reads /me', async () => {
     const agent = request.agent(app);
-    const ok = await agent
-      .post('/api/v1/auth/signup/verify')
-      .send({ email: 'new@student.dev', code: otp.body.devCode, name: 'New', username: 'newbie', password: 'password1' });
+    const ok = await agent.post('/api/v1/auth/signup').send({ name: 'New Student', admissionNo: '3411' });
     expect(ok.status).toBe(201);
+    expect(ok.body.data.user.username).toBe('new.student');
     expect(ok.body.data.user.role).toBe('user');
     expect(ok.body.data.user).not.toHaveProperty('password');
 
     const me = await agent.get('/api/v1/auth/me');
-    expect(me.body.data.user.username).toBe('newbie');
+    expect(me.body.data.user.username).toBe('new.student');
 
-    const login = await request(app).post('/api/v1/auth/login').send({ identifier: 'newbie', password: 'password1' });
+    const login = await request(app).post('/api/v1/auth/login').send({ identifier: 'new.student', password: '3411' });
     expect(login.status).toBe(200);
 
-    const bad = await request(app).post('/api/v1/auth/login').send({ identifier: 'newbie', password: 'wrongpass' });
+    const bad = await request(app).post('/api/v1/auth/login').send({ identifier: 'new.student', password: 'wrongpass' });
     expect(bad.status).toBe(401);
+  });
+
+  it('rejects a name or admission number that is not on the roster', async () => {
+    expect((await request(app).post('/api/v1/auth/signup').send({ name: 'Nobody Here', admissionNo: '3411' })).status).toBe(403);
+    expect((await request(app).post('/api/v1/auth/signup').send({ name: 'New Student', admissionNo: '9999' })).status).toBe(403);
   });
 
   it('runs the admin user lifecycle', async () => {
@@ -318,10 +319,7 @@ describe('OGEA on Google Sheets only', () => {
 
   it('runs the chat flow', async () => {
     const user = request.agent(app);
-    const otp = await request(app).post('/api/v1/auth/signup/request-otp').send({ email: 'chat@student.dev' });
-    await user
-      .post('/api/v1/auth/signup/verify')
-      .send({ email: 'chat@student.dev', code: otp.body.devCode, name: 'Chat', username: 'chatter', password: 'password1' });
+    await user.post('/api/v1/auth/signup').send({ name: 'Chat Student', admissionNo: '3412' });
 
     const sent = await user.post('/api/v1/chat/me/messages').send({ body: 'Hello admin' });
     expect(sent.status).toBe(201);
@@ -332,7 +330,7 @@ describe('OGEA on Google Sheets only', () => {
     const { agent: admin } = await adminLogin();
     const convos = await admin.get('/api/v1/chat/conversations');
     expect(convos.body.data.conversations[0]).toMatchObject({ unreadForAdmin: 1, lastMessage: 'Hello admin' });
-    expect(convos.body.data.conversations[0].user.username).toBe('chatter');
+    expect(convos.body.data.conversations[0].user.username).toBe('chat.student');
     const cid = convos.body.data.conversations[0]._id;
 
     await admin.post(`/api/v1/chat/conversations/${cid}/messages`).send({ body: 'Hi! How can I help?' });

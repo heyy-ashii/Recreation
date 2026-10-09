@@ -43,7 +43,7 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
-  const [form, setForm] = useState({ identifier: '', password: '', email: '', code: '', name: '', username: '' })
+  const [form, setForm] = useState({ identifier: '', password: '', email: '', code: '', name: '', username: '', admissionNo: '' })
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const switchMode = (m: AuthMode) => {
@@ -72,7 +72,7 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
 
   const sendCode = () =>
     run(async () => {
-      const res = mode === 'signup' ? await auth.requestSignupCode(form.email) : await auth.requestResetCode(form.email)
+      const res = await auth.requestResetCode(form.email)
       setStep('code')
       setInfo(res.devCode ? `${res.message} (dev code: ${res.devCode})` : res.message)
     })
@@ -80,14 +80,9 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (mode === 'login') return run(async () => done(await auth.login(form.identifier, form.password), 'Welcome back!'))
-    if (step === 'email') return sendCode()
     if (mode === 'signup')
-      return run(async () =>
-        done(
-          await auth.verifySignup({ email: form.email, code: form.code, name: form.name, username: form.username, password: form.password }),
-          'Account created. Welcome to OGEA!',
-        ),
-      )
+      return run(async () => done(await auth.signup({ name: form.name, admissionNo: form.admissionNo }), 'Account created. Welcome to OGEA!'))
+    if (step === 'email') return sendCode()
     return run(async () => done(await auth.resetPassword({ email: form.email, code: form.code, password: form.password }), 'Password updated'))
   }
 
@@ -120,7 +115,7 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
       <h2 className={cn('font-bold', compact ? 'text-lg' : 'text-2xl')}>{titles[mode]}</h2>
       <p className="mb-5 mt-1 text-sm text-neutral-500">
         {mode === 'login' && 'Log in with your username or email.'}
-        {mode === 'signup' && (step === 'email' ? 'We will email you a 6-digit verification code.' : 'Enter the code and finish your profile.')}
+        {mode === 'signup' && 'Use the name and admission number on the student list.'}
         {mode === 'forgot' && (step === 'email' ? 'We will email you a code to reset your password.' : 'Enter the code and choose a new password.')}
       </p>
 
@@ -143,77 +138,86 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
           </>
         )}
 
-        {mode !== 'login' && (
-          <div>
-            <label className="label" htmlFor="email">Email address</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              value={form.email}
-              onChange={(e) => set('email')(e.target.value)}
-              autoComplete="email"
-              disabled={step === 'code'}
-              required
-            />
-          </div>
-        )}
-
-        {mode !== 'login' && step === 'code' && (
+        {mode === 'signup' && (
           <>
-            {info && (
-              <p className="flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                <MailCheck className="mt-0.5 size-4 shrink-0" /> {info}
-              </p>
-            )}
             <div>
-              <label className="label" htmlFor="code">Verification code</label>
+              <label className="label" htmlFor="name">Full name</label>
               <input
-                id="code"
-                className="input text-center text-lg tracking-[0.5em]"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                pattern="\d{6}"
-                value={form.code}
-                onChange={(e) => set('code')(e.target.value.replace(/\D/g, ''))}
+                id="name"
+                className="input"
+                value={form.name}
+                onChange={(e) => set('name')(e.target.value)}
+                autoComplete="name"
+                placeholder="As it appears on the student list"
                 required
               />
-              <div className="mt-1.5 flex justify-between text-xs">
-                <button type="button" className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white" onClick={() => setStep('email')}>
-                  Change email
-                </button>
-                <button type="button" className="font-medium text-brand hover:underline disabled:opacity-50" onClick={sendCode} disabled={busy}>
-                  Resend code
-                </button>
-              </div>
             </div>
-            {mode === 'signup' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="admissionNo">Admission number</label>
+              <input
+                id="admissionNo"
+                className="input"
+                value={form.admissionNo}
+                onChange={(e) => set('admissionNo')(e.target.value)}
+                placeholder="e.g. 3411"
+                required
+              />
+              <p className="mt-1 text-xs text-neutral-500">Your admission number is your initial password. Change it after your first login.</p>
+            </div>
+          </>
+        )}
+
+        {mode === 'forgot' && (
+          <>
+            <div>
+              <label className="label" htmlFor="email">Email address</label>
+              <input
+                id="email"
+                type="email"
+                className="input"
+                value={form.email}
+                onChange={(e) => set('email')(e.target.value)}
+                autoComplete="email"
+                disabled={step === 'code'}
+                required
+              />
+            </div>
+            {step === 'code' && (
+              <>
+                {info && (
+                  <p className="flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                    <MailCheck className="mt-0.5 size-4 shrink-0" /> {info}
+                  </p>
+                )}
                 <div>
-                  <label className="label" htmlFor="name">Full name</label>
-                  <input id="name" className="input" value={form.name} onChange={(e) => set('name')(e.target.value)} autoComplete="name" required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="username">Username</label>
+                  <label className="label" htmlFor="code">Verification code</label>
                   <input
-                    id="username"
-                    className="input"
-                    value={form.username}
-                    onChange={(e) => set('username')(e.target.value.toLowerCase())}
-                    pattern="[a-z0-9._]{3,30}"
-                    title="3-30 characters: letters, numbers, dot or underscore"
-                    autoComplete="username"
+                    id="code"
+                    className="input text-center text-lg tracking-[0.5em]"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    pattern="\d{6}"
+                    value={form.code}
+                    onChange={(e) => set('code')(e.target.value.replace(/\D/g, ''))}
                     required
                   />
+                  <div className="mt-1.5 flex justify-between text-xs">
+                    <button type="button" className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white" onClick={() => setStep('email')}>
+                      Change email
+                    </button>
+                    <button type="button" className="font-medium text-brand hover:underline disabled:opacity-50" onClick={sendCode} disabled={busy}>
+                      Resend code
+                    </button>
+                  </div>
                 </div>
-              </div>
+                <div>
+                  <label className="label" htmlFor="new-password">New password</label>
+                  <PasswordInput id="new-password" value={form.password} onChange={set('password')} autoComplete="new-password" />
+                  <p className="mt-1 text-xs text-neutral-500">At least 8 characters.</p>
+                </div>
+              </>
             )}
-            <div>
-              <label className="label" htmlFor="new-password">{mode === 'signup' ? 'Password' : 'New password'}</label>
-              <PasswordInput id="new-password" value={form.password} onChange={set('password')} autoComplete="new-password" />
-              <p className="mt-1 text-xs text-neutral-500">At least 8 characters.</p>
-            </div>
           </>
         )}
 
@@ -225,7 +229,7 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
 
         <button type="submit" className="btn-primary w-full" disabled={busy}>
           {busy && <Spinner className="size-4" />}
-          {mode === 'login' ? 'Login' : step === 'email' ? 'Send verification code' : mode === 'signup' ? 'Verify & create account' : 'Reset password'}
+          {mode === 'login' ? 'Login' : mode === 'signup' ? 'Create account' : step === 'email' ? 'Send verification code' : 'Reset password'}
         </button>
       </form>
     </div>

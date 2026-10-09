@@ -24,7 +24,7 @@ Because the site and the API share one domain, there is no cross-site cookie/COR
 | Area | Endpoints |
 | --- | --- |
 | Health | `GET /health` |
-| Auth | `POST /auth/signup/request-otp`, `POST /auth/signup/verify`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/password/request-otp`, `POST /auth/password/reset`, `GET /auth/me`, `PATCH /auth/update-me`, `PATCH /auth/update-password` |
+| Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/password/request-otp`, `POST /auth/password/reset`, `GET /auth/me`, `PATCH /auth/update-me`, `PATCH /auth/update-password` |
 | Programs | `GET /programs` (`q`, `category`, `status`, `sort`, `page`, `limit`), `GET /programs/categories`, `GET /programs/:id`, admin: `POST /programs`, `PATCH /programs/:id`, `DELETE /programs/:id` |
 | Admin | `GET /admin/stats`, `GET/POST /admin/users`, `PATCH/DELETE /admin/users/:id` |
 | Chat | user: `GET /chat/me`, `GET /chat/me/unread`, `POST /chat/me/messages`; admin: `GET /chat/conversations`, `GET/POST /chat/conversations/:id/messages`, `PATCH /chat/conversations/:id` |
@@ -34,7 +34,7 @@ Because the site and the API share one domain, there is no cross-site cookie/COR
 
 - **Footer:** `ogea.sms@gmail.com` opens the mail app (`mailto:`); **Chat with Admin** opens the chat panel.
 - **Chat with Admin:** signed-in users message the admins from any page; admins reply from `/admin/chats` and can mark conversations resolved. Messages are stored in MongoDB and refreshed by polling every 5 s (Vercel functions can't hold WebSocket connections).
-- **Create Account:** on `/about`, `/login` or `/signup`. The user enters an email, receives a 6-digit code, then picks a name, username and password. Phone/SMS sign-up is not built yet (see *Adding SMS later*).
+- **Create Account:** on `/about`, `/login` or `/signup`. The student enters the name and admission number on the student list; a matching entry creates an account whose username is built from the name and whose initial password is the admission number. There is no email step.
 - **Forgot password:** reset by emailed code.
 - **Admin user table:** search, filter by role or status, add, edit, change role, enable or disable, reset password, delete. Passwords are bcrypt-hashed, so **nobody, admins included, can view an existing password**. An admin can only set a new one. Admins can't demote, disable or delete themselves.
 - **Programs:** create, edit and delete; upload images to Cloudinary or paste image URLs; set status, deadline, event date and tags. On detail pages, phone numbers, emails and links are clickable, and there are Apply and Share buttons.

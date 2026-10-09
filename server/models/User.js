@@ -9,7 +9,9 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 80 },
     username: { type: String, required: true, unique: true, lowercase: true, trim: true, minlength: 3, maxlength: 30 },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 8, select: false },
+    // Roster signup sets this to the student's admission number, which is shorter
+    // than the 8 characters the old email flow required.
+    password: { type: String, required: true, minlength: 1, select: false },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     status: { type: String, enum: ['active', 'disabled'], default: 'active' },
     emailVerified: { type: Boolean, default: false },

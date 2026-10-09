@@ -10,8 +10,7 @@ interface AuthValue {
   loading: boolean
   isAdmin: boolean
   login: (identifier: string, password: string) => Promise<User>
-  requestSignupCode: (email: string) => Promise<{ message: string; devCode?: string }>
-  verifySignup: (input: { email: string; code: string; name: string; username: string; password: string }) => Promise<User>
+  signup: (input: { name: string; admissionNo: string }) => Promise<User>
   requestResetCode: (email: string) => Promise<{ message: string; devCode?: string }>
   resetPassword: (input: { email: string; code: string; password: string }) => Promise<User>
   logout: () => Promise<void>
@@ -50,8 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.role === 'admin',
       setUser,
       login: (identifier, password) => authed('/auth/login', { identifier, password }),
-      requestSignupCode: (email) => api('/auth/signup/request-otp', { method: 'POST', body: { email } }),
-      verifySignup: (input) => authed('/auth/signup/verify', input),
+      signup: (input) => authed('/auth/signup', input),
       requestResetCode: (email) => api('/auth/password/request-otp', { method: 'POST', body: { email } }),
       resetPassword: (input) => authed('/auth/password/reset', input),
       logout: async () => {
