@@ -28,7 +28,7 @@ const purposeCopy = {
   reset: { subject: 'Your OGEA password reset code', intro: 'Use this code to reset your OGEA password.' },
 };
 
-export function sendOtpEmail(to, code, purpose) {
+export async function sendOtpEmail(to, code, purpose) {
   const copy = purposeCopy[purpose];
   const minutes = config.otp.ttlMinutes;
   const text = `${copy.intro}\n\nCode: ${code}\n\nIt expires in ${minutes} minutes. If you did not request this, you can ignore this email.`;
@@ -38,5 +38,8 @@ export function sendOtpEmail(to, code, purpose) {
   <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:24px 0">${code}</p>
   <p style="color:#666">This code expires in ${minutes} minutes. If you did not request it, ignore this email.</p>
 </div>`;
-  return sendMail({ to, subject: copy.subject, text, html });
+  // The caller only returns the code to the client when delivery failed and we
+  // are not in production, so surfacing it here is safe.
+  const { delivered } = await sendMail({ to, subject: copy.subject, text, html });
+  return { delivered, code };
 }

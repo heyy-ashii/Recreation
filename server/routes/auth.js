@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
 import { z } from 'zod';
-import { config, emailConfigured } from '../config.js';
+import { config } from '../config.js';
 import { protect } from '../middleware/auth.js';
 import { loginLimiter, otpLimiter } from '../middleware/rateLimit.js';
 import { email, name, password, username, validate } from '../middleware/validate.js';
@@ -25,14 +25,22 @@ async function issueOtp(emailAddress, purpose) {
   }
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   const codeHash = await bcrypt.hash(code, 10);
+  const { delivered } = await sendOtpEmail(emailAddress, code, purpose);
+  // In production a code we cannot deliver is useless, so fail loudly instead of
+  // replying "we sent a code". Outside production the code is returned so local
+  // development and tests can finish the flow.
+  if (!delivered && config.isProd) {
+    throw new AppError(
+      'Email delivery is not configured, so the verification code could not be sent. Please contact the site administrator.',
+      503,
+    );
+  }
   await Otp.findOneAndUpdate(
     { email: emailAddress, purpose },
     { codeHash, attempts: 0, expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60 * 1000) },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, timestamps: true },
   );
-  await sendOtpEmail(emailAddress, code, purpose);
-  // Only exposed when email delivery is not configured outside production, so local dev/tests can complete signup.
-  return !config.isProd && !emailConfigured() ? code : undefined;
+  return !delivered ? code : undefined;
 }
 
 async function consumeOtp(emailAddress, purpose, code) {
