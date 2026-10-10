@@ -2,7 +2,7 @@
 
 ## Project
 
-OGEA – "Share & Message". A chat + thought-sharing platform: a public Thoughts
+DHGRAM – "Share & Message". A chat + thought-sharing platform: a public Thoughts
 feed, one-to-one student Messages, and a Chat-with-Admin panel. React (Vite)
 frontend + Express API. Frontend in `src/`, API in `server/`, Vercel serverless
 entry in `api/index.js`.

@@ -4,7 +4,7 @@ import { usePageMeta } from '../lib/usePageMeta'
 import { CONTACT_EMAIL } from '../lib/utils'
 
 export default function Contact() {
-  usePageMeta('Contact', `Contact OGEA at ${CONTACT_EMAIL} or chat with the admin.`)
+  usePageMeta('Contact', `Contact DHGRAM at ${CONTACT_EMAIL} or chat with the admin.`)
   const { setChatOpen } = useUi()
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 text-center">

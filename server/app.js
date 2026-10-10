@@ -41,7 +41,7 @@ export function createApp({ connect = connectDB } = {}) {
   app.get('/api/v1/health', (_req, res) =>
     res.json({
       status: 'success',
-      message: 'OGEA API running',
+      message: 'DHGRAM API running',
       datastore: datastore(),
     }),
   );

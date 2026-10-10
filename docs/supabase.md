@@ -1,6 +1,6 @@
 # Supabase datastore
 
-OGEA can run entirely on Supabase (Postgres) instead of MongoDB or Google Sheets.
+DHGRAM can run entirely on Supabase (Postgres) instead of MongoDB or Google Sheets.
 Set one environment variable, `SUPABASE_DB_URL`, and users, OTPs, chats, posts
 and messages all move to Postgres. Unset it and the app falls back to Sheets,
 then MongoDB. Nothing else in the code changes.

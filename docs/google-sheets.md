@@ -1,6 +1,6 @@
 # Using Google Sheets as the whole datastore
 
-OGEA can run with **no database at all**: when `SHEETS_API_URL` is set, users,
+DHGRAM can run with **no database at all**: when `SHEETS_API_URL` is set, users,
 OTPs, chats, messages and posts all live in a Google Sheet. Leave it unset
 and everything stays in MongoDB.
 
