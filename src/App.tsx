@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound'
 import ProgramDetail from './pages/ProgramDetail'
 
 const Account = lazy(() => import('./pages/Account'))
+const Messages = lazy(() => import('./pages/Messages'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminUsers = lazy(() => import('./pages/admin/Users'))
@@ -33,6 +34,14 @@ export default function App() {
           <Route path="feed" element={<Feed />} />
           <Route path="discover" element={<Discover />} />
           <Route path="search" element={<SearchRedirect />} />
+          <Route
+            path="messages"
+            element={
+              <RequireAuth>
+                <Messages />
+              </RequireAuth>
+            }
+          />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
           <Route path="programs/:id" element={<ProgramDetail />} />

@@ -5,6 +5,8 @@ import { protect, restrictTo } from '../middleware/auth.js';
 import { chatLimiter, cronLimiter } from '../middleware/rateLimit.js';
 import { objectId, validate } from '../middleware/validate.js';
 import { Conversation, Message } from '../models/Chat.js';
+import { PeerConversation } from '../models/PeerChat.js';
+import { purgeOldPeerMessages } from './messages.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
 const router = Router();
@@ -22,6 +24,11 @@ router.get('/cron/cleanup', cronLimiter, asyncHandler(async (req, res) => {
   let removed = 0;
   for (const conversation of conversations) {
     removed += await purgeOldMessages(conversation);
+  }
+  // Student-to-student threads follow the same retention window.
+  const peerConversations = await PeerConversation.find({}).populate('userA', 'name username').populate('userB', 'name username');
+  for (const conversation of peerConversations) {
+    removed += await purgeOldPeerMessages(conversation);
   }
   res.json({ status: 'success', data: { removed, cutoff, retentionDays: config.chat.retentionDays } });
 }));

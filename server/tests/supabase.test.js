@@ -17,7 +17,7 @@ let app;
 let db;
 let closePool;
 
-const TABLES = ['app_messages', 'app_conversations', 'app_otps', 'app_programs', 'app_posts', 'app_users'];
+const TABLES = ['app_peer_messages', 'app_peer_conversations', 'app_messages', 'app_conversations', 'app_otps', 'app_programs', 'app_posts', 'app_users'];
 
 beforeAll(async () => {
   if (!DB_URL) return;
@@ -218,5 +218,42 @@ describeIfDb('OGEA on Supabase (Postgres)', () => {
     expect((await request(app).get('/api/v1/posts')).body.total).toBe(0);
 
     expect((await user.delete(`/api/v1/posts/${id}`)).status).toBe(204);
+  });
+
+  it('runs the student-to-student chat flow', async () => {
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Peer One', username: 'peerone', password: 'peerone1', status: 'active' });
+    await User.create({ name: 'Peer Two', username: 'peertwo', password: 'peertwo1', status: 'active' });
+    const one = request.agent(app);
+    const two = request.agent(app);
+    await one.post('/api/v1/auth/login').send({ identifier: 'peerone', password: 'peerone1' });
+    await two.post('/api/v1/auth/login').send({ identifier: 'peertwo', password: 'peertwo1' });
+
+    const dir = await one.get('/api/v1/messages/directory?q=peer');
+    expect(dir.status).toBe(200);
+    const other = dir.body.data.users.find((u) => u.username === 'peertwo');
+    expect(other).toBeTruthy();
+    expect(dir.body.data.users.some((u) => u.username === 'peerone')).toBe(false);
+
+    const started = await one.post('/api/v1/messages/start').send({ userId: other._id });
+    expect(started.status).toBe(201);
+    const id = started.body.data.conversation._id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(started.body.data.conversation.peer.username).toBe('peertwo');
+
+    await one.post(`/api/v1/messages/${id}`).send({ body: 'pg hey' });
+    const inbox = await two.get('/api/v1/messages');
+    expect(inbox.body.data.conversations[0]).toMatchObject({ lastMessage: 'pg hey', unread: 1 });
+    expect(inbox.body.data.conversations[0].peer.username).toBe('peerone');
+    expect((await two.get('/api/v1/messages/unread')).body.data.unread).toBe(1);
+
+    const thread = await two.get(`/api/v1/messages/${id}`);
+    expect(thread.body.data.messages.map((m) => m.body)).toEqual(['pg hey']);
+    expect(thread.body.data.messages[0].mine).toBe(false);
+    expect((await two.get('/api/v1/messages/unread')).body.data.unread).toBe(0);
+
+    // Starting the same chat again reuses the thread rather than duplicating it.
+    await one.post('/api/v1/messages/start').send({ userId: other._id });
+    expect((await one.get('/api/v1/messages')).body.data.conversations).toHaveLength(1);
   });
 });

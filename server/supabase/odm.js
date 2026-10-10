@@ -2,13 +2,13 @@ import bcrypt from 'bcryptjs';
 import { SheetsQuery } from '../sheets/odm.js';
 import { AppError } from '../utils/AppError.js';
 import { query } from './db.js';
-import { Where, buildWhere, isUuid } from './sql.js';
+import { Where, buildLimitOffset, buildOrderBy, buildWhere, isUuid } from './sql.js';
 
 // A Mongo-like ODM over Postgres. It exposes the same surface the routes use
 // (find/findOne/create/save/populate/aggregate) so the models can swap drivers
 // without touching the routes. Queries are compiled to SQL in `sql.js`.
 
-const UUID_COLUMNS = new Set(['user_id', 'sender_id', 'conversation_id', 'created_by']);
+const UUID_COLUMNS = new Set(['id', 'user_id', 'user_a', 'user_b', 'sender_id', 'conversation_id', 'created_by']);
 
 function castValue(column, value) {
   if (value === undefined || value === null) return value;
@@ -202,7 +202,16 @@ export function createCollection(spec) {
       for (const doc of docs) out.push(await this.create(doc));
       return out;
     },
-    find: (filter = {}) => new SheetsQuery(async () => (await selectWhere(buildWhere(filter, map))).map(makeDoc)),
+      find: (filter = {}) => {
+        const q = new SheetsQuery(async () => {
+          const where = buildWhere(filter, map);
+          const order = buildOrderBy(q._opts.sort, map);
+          const limit = buildLimitOffset({ skip: q._opts.skip, limit: q._opts.limit });
+          return (await selectWhere(where, { order, limit })).map(makeDoc);
+        });
+        q._preApplied = true;
+        return q;
+      },
     findOne: (filter = {}) =>
       new SheetsQuery(async () => {
         const row = await selectWhere(buildWhere(filter, map), { single: true });

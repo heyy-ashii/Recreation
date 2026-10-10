@@ -52,14 +52,32 @@ const postSpec = {
   publicJSON: (p) => ({ ...p }),
 };
 
+const peerConversationSpec = {
+  name: 'PeerConversations',
+  dates: dateFields(['lastMessageAt']),
+  numbers: ['unreadForA', 'unreadForB'],
+  defaults: { lastMessage: '', unreadForA: 0, unreadForB: 0, lastMessageAt: () => new Date() },
+  publicJSON: (c) => ({ ...c }),
+};
+
+const peerMessageSpec = {
+  name: 'PeerMessages',
+  dates: dateFields(),
+  publicJSON: (m) => ({ _id: m._id, conversation: m.conversation, sender: m.sender, body: m.body, createdAt: m.createdAt }),
+};
+
 export const SheetsUser = createCollection(userSpec);
 export const SheetsOtp = createCollection(otpSpec);
 export const SheetsConversation = createCollection(conversationSpec);
 export const SheetsMessage = createCollection(messageSpec);
 export const SheetsPost = createCollection(postSpec);
+export const SheetsPeerConversation = createCollection(peerConversationSpec);
+export const SheetsPeerMessage = createCollection(peerMessageSpec);
 
 conversationSpec.populates = { user: SheetsUser };
 postSpec.populates = { author: SheetsUser };
+peerConversationSpec.populates = { userA: SheetsUser, userB: SheetsUser };
+peerMessageSpec.populates = { sender: SheetsUser };
 
 // Shared shape for a user as returned to clients, used for .lean() results.
 export const publicUser = userSpec.publicJSON;

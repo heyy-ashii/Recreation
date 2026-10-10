@@ -110,6 +110,9 @@ export class SheetsQuery {
     this._run = run;
     this._single = single;
     this._opts = { sort: null, skip: 0, limit: 0, populate: [], lean: false };
+    // The Supabase ODM compiles sort/skip/limit into SQL and passes them here so
+    // they are not applied a second time in Node. The Sheets ODM ignores this.
+    this._preApplied = false;
   }
 
   sort(spec) {
@@ -153,9 +156,11 @@ export class SheetsQuery {
   async _execute() {
     let docs = await this._run();
     docs = docs.filter(Boolean);
-    docs = applySort(docs, this._opts.sort);
-    if (this._opts.skip) docs = docs.slice(this._opts.skip);
-    if (this._opts.limit) docs = docs.slice(0, this._opts.limit);
+    if (!this._preApplied) {
+      docs = applySort(docs, this._opts.sort);
+      if (this._opts.skip) docs = docs.slice(this._opts.skip);
+      if (this._opts.limit) docs = docs.slice(0, this._opts.limit);
+    }
     for (const { field, selection } of this._opts.populate) {
       docs = await Promise.all(docs.map((d) => d.populate(field, selection)));
     }

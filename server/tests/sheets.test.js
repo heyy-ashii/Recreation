@@ -23,6 +23,8 @@ function startFakeSheet() {
     Messages: [],
     Programs: [],
     Posts: [],
+    PeerConversations: [],
+    PeerMessages: [],
   };
   const JSON_COLUMNS = { imageurls: true, tags: true, likes: true };
   const BOOLEAN_COLUMNS = { emailVerified: true, hidden: true };
@@ -406,5 +408,35 @@ describe('OGEA on Google Sheets only', () => {
     config.sheets.apiUrl = 'http://127.0.0.1:1/exec';
     await expect(sheetsClient.list({})).rejects.toMatchObject({ statusCode: 503 });
     config.sheets.apiUrl = original;
+  });
+
+  it('runs the student-to-student chat flow through the sheet', async () => {
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Peer One', username: 'peerone', password: 'peerone1', status: 'active' });
+    await User.create({ name: 'Peer Two', username: 'peertwo', password: 'peertwo1', status: 'active' });
+    const one = request.agent(app);
+    const two = request.agent(app);
+    await one.post('/api/v1/auth/login').send({ identifier: 'peerone', password: 'peerone1' });
+    await two.post('/api/v1/auth/login').send({ identifier: 'peertwo', password: 'peertwo1' });
+
+    const dir = await one.get('/api/v1/messages/directory?q=peer');
+    const other = dir.body.data.users.find((u) => u.username === 'peertwo');
+    expect(other).toBeTruthy();
+    expect(dir.body.data.users.some((u) => u.username === 'peerone')).toBe(false);
+
+    const started = await one.post('/api/v1/messages/start').send({ userId: other._id });
+    expect(started.status).toBe(201);
+    const id = started.body.data.conversation._id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(started.body.data.conversation.peer.username).toBe('peertwo');
+
+    await one.post(`/api/v1/messages/${id}`).send({ body: 'sheet hey' });
+    const inbox = await two.get('/api/v1/messages');
+    expect(inbox.body.data.conversations[0]).toMatchObject({ lastMessage: 'sheet hey', unread: 1 });
+
+    const thread = await two.get(`/api/v1/messages/${id}`);
+    expect(thread.body.data.messages.map((m) => m.body)).toEqual(['sheet hey']);
+    expect(thread.body.data.messages[0].mine).toBe(false);
+    expect((await two.get('/api/v1/messages/unread')).body.data.unread).toBe(0);
   });
 });
