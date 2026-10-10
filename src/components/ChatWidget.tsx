@@ -56,7 +56,7 @@ function ChatThread() {
         {isLoading ? (
           <div className="grid h-full place-items-center"><Spinner /></div>
         ) : messages.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-neutral-500">Hi! Send a message and the OGEA admin team will reply here.</p>
+          <p className="mt-8 text-center text-sm text-neutral-500">Hi! Send a message and the DHGRAM admin team will reply here.</p>
         ) : (
           <MessageList messages={messages} mine="user" />
         )}

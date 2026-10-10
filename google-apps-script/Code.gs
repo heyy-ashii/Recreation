@@ -1,5 +1,5 @@
 /**
- * OGEA - Google Sheets datastore.
+ * DHGRAM - Google Sheets datastore.
  *
  * Serves the whole app (users, otps, conversations, messages, posts) over a
  * JSON API. The Express API talks to this script, so the frontend contract is

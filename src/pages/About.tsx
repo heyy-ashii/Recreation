@@ -15,7 +15,7 @@ const steps = [
 ]
 
 export default function About() {
-  usePageMeta('About', `About OGEA — created by ${CREATOR_NAME}.`)
+  usePageMeta('About', `About DHGRAM — created by ${CREATOR_NAME}.`)
   const { user, logout } = useAuth()
   const { setChatOpen, toast } = useUi()
 
@@ -23,10 +23,10 @@ export default function About() {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <section className="max-w-3xl">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-          About OGEA — <span className="text-brand">Share & connect.</span>
+          About DHGRAM — <span className="text-brand">Share & connect.</span>
         </h1>
         <p className="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
-          OGEA is a simple space for students to share thoughts and message each other, one-to-one.
+          DHGRAM is a simple space for students to share thoughts and message each other, one-to-one.
         </p>
       </section>
 
@@ -49,7 +49,7 @@ export default function About() {
       </section>
 
       <section className="mt-14">
-        <h2 className="text-2xl font-bold">How OGEA Works</h2>
+        <h2 className="text-2xl font-bold">How DHGRAM Works</h2>
         <p className="text-sm text-neutral-500">Simple. Reliable. Student focused.</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {steps.map((s) => (
@@ -69,7 +69,7 @@ export default function About() {
             Send us an email or chat with the admin team and we will get back to you.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <a className="btn-outline" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('OGEA feedback')}`}>
+            <a className="btn-outline" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('DHGRAM feedback')}`}>
               <Mail className="size-4" /> Email us
             </a>
             <button className="btn-primary" onClick={() => setChatOpen(true)}>

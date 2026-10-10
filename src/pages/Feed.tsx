@@ -35,7 +35,7 @@ function Composer({ onDone }: { onDone: () => void }) {
       <textarea
         id="post-body"
         className="input min-h-28 resize-y"
-        placeholder="Share a thought with the OGEA community…"
+        placeholder="Share a thought with the DHGRAM community…"
         value={text}
         maxLength={2000}
         onChange={(e) => setText(e.target.value)}
@@ -173,7 +173,7 @@ export default function Feed() {
     <div className="mx-auto max-w-2xl px-4 py-10">
       <header className="mb-6">
         <h1 className="text-3xl font-extrabold">Thoughts</h1>
-        <p className="mt-1 text-sm text-neutral-500">Share what's on your mind with the OGEA community.</p>
+        <p className="mt-1 text-sm text-neutral-500">Share what's on your mind with the DHGRAM community.</p>
       </header>
 
       {user ? (

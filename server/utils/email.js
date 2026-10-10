@@ -24,8 +24,8 @@ export async function sendMail({ to, subject, text, html }) {
 }
 
 const purposeCopy = {
-  signup: { subject: 'Your OGEA verification code', intro: 'Use this code to finish creating your OGEA account.' },
-  reset: { subject: 'Your OGEA password reset code', intro: 'Use this code to reset your OGEA password.' },
+  signup: { subject: 'Your DHGRAM verification code', intro: 'Use this code to finish creating your DHGRAM account.' },
+  reset: { subject: 'Your DHGRAM password reset code', intro: 'Use this code to reset your DHGRAM password.' },
 };
 
 export async function sendOtpEmail(to, code, purpose) {
@@ -33,7 +33,7 @@ export async function sendOtpEmail(to, code, purpose) {
   const minutes = config.otp.ttlMinutes;
   const text = `${copy.intro}\n\nCode: ${code}\n\nIt expires in ${minutes} minutes. If you did not request this, you can ignore this email.`;
   const html = `<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:auto;padding:24px">
-  <h2 style="margin:0 0 12px">OGEA</h2>
+  <h2 style="margin:0 0 12px">DHGRAM</h2>
   <p>${copy.intro}</p>
   <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:24px 0">${code}</p>
   <p style="color:#666">This code expires in ${minutes} minutes. If you did not request it, ignore this email.</p>
