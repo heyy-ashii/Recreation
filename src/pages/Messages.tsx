@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, MessageSquarePlus, Send } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState, Modal, PageSpinner, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -132,12 +132,40 @@ function NewChatPicker({ open, onClose, onStarted }: { open: boolean; onClose: (
 
 export default function Messages() {
   usePageMeta('Messages')
+  const qc = useQueryClient()
+  const { toast } = useUi()
   const { user } = useAuth()
   const [selected, setSelected] = useState<string | null>(null)
   const [picker, setPicker] = useState(false)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'all' | 'unread'>('all')
   const { data: threads, isLoading } = useMessageThreads(Boolean(user))
+  const { data: directory, isLoading: dirLoading } = useStudentDirectory(search, Boolean(user))
+
+  const start = useMutation({
+    mutationFn: (userId: string) => api<{ data: { conversation: MessageThread } }>('/messages/start', { method: 'POST', body: { userId } }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['messages'] })
+      setPicker(false)
+      setSelected(res.data.conversation._id)
+    },
+    onError: (err) => toast(errorMessage(err), 'error'),
+  })
+
+  // Show every other student in the list, not just existing conversations, so a
+  // chat can be started straight from the sidebar.
+  const list = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    const conversations = (threads ?? []).filter((t) => {
+      if (tab === 'unread' && t.unread === 0) return false
+      if (!term) return true
+      return t.peer?.name?.toLowerCase().includes(term) || t.peer?.username?.toLowerCase().includes(term) || t.lastMessage.toLowerCase().includes(term)
+    })
+    if (tab === 'unread') return conversations
+    const seen = new Set(conversations.map((c) => c.peer?._id))
+    const others = (directory?.data.users ?? []).filter((u) => !seen.has(u._id))
+    return [...conversations, ...others]
+  }, [threads, directory, search, tab])
 
   if (!user) {
     return (
@@ -148,13 +176,6 @@ export default function Messages() {
       </div>
     )
   }
-
-  const term = search.trim().toLowerCase()
-  const list = (threads ?? []).filter((t) => {
-    if (tab === 'unread' && t.unread === 0) return false
-    if (!term) return true
-    return t.peer?.name?.toLowerCase().includes(term) || t.peer?.username?.toLowerCase().includes(term) || t.lastMessage.toLowerCase().includes(term)
-  })
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -185,37 +206,42 @@ export default function Messages() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
+            {isLoading || dirLoading ? (
               <PageSpinner />
             ) : list.length === 0 ? (
               <div className="p-6 text-center text-sm text-neutral-500">
-                {term || tab === 'unread' ? 'Nothing matches that filter.' : (
+                {search.trim() || tab === 'unread' ? 'Nothing matches that filter.' : (
                   <>
-                    <p>No conversations yet.</p>
+                    <p>No students yet.</p>
                     <button className="btn-outline mt-3" onClick={() => setPicker(true)}>Start one</button>
                   </>
                 )}
               </div>
             ) : (
-              list.map((t) => (
-                <button
-                  key={t._id}
-                  onClick={() => setSelected(t._id)}
-                  className={cn('flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/40', selected === t._id && 'bg-blue-50 dark:bg-blue-950/40')}
-                >
-                  <Avatar user={t.peer} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-semibold">{t.peer?.name ?? 'Student'}</span>
-                      <span className="shrink-0 text-[11px] text-neutral-400">{formatShort(t.lastMessageAt)}</span>
+              list.map((item) => {
+                const isThread = 'peer' in item
+                const peer = isThread ? item.peer : item
+                return (
+                  <button
+                    key={item._id}
+                    onClick={() => (isThread ? setSelected(item._id) : start.mutate(peer._id))}
+                    disabled={!isThread && start.isPending}
+                    className={cn('flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/40', isThread && selected === item._id && 'bg-blue-50 dark:bg-blue-950/40')}
+                  >
+                    <Avatar user={peer} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-semibold">{peer.name ?? 'Student'}</span>
+                        {isThread && <span className="shrink-0 text-[11px] text-neutral-400">{formatShort(item.lastMessageAt)}</span>}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm text-neutral-500">{isThread ? item.lastMessage || 'No messages yet' : peer.username ? `@${peer.username}` : 'Start a chat'}</span>
+                        {isThread && item.unread > 0 && <span className="grid size-5 shrink-0 place-items-center rounded-full bg-brand text-[10px] font-bold text-white">{item.unread}</span>}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-neutral-500">{t.lastMessage || 'No messages yet'}</span>
-                      {t.unread > 0 && <span className="grid size-5 shrink-0 place-items-center rounded-full bg-brand text-[10px] font-bold text-white">{t.unread}</span>}
-                    </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                )
+              })
             )}
           </div>
         </div>
