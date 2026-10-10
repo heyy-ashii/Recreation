@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import BrandName from './BrandName'
 
 export default function Logo({ to = '/' }: { to?: string }) {
   return (
@@ -11,7 +12,7 @@ export default function Logo({ to = '/' }: { to?: string }) {
         className="size-9 rounded-lg object-cover"
       />
       <span className="font-heading text-lg font-extrabold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-        <span className="text-brand">DH</span>GRAM
+        <BrandName />
       </span>
     </Link>
   )

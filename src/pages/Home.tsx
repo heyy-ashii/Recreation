@@ -1,5 +1,6 @@
 import { ArrowRight, MessageCircle, MessageSquare, Sparkles, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import BrandName from '../components/BrandName'
 import { EmptyState } from '../components/ui'
 import { usePosts } from '../lib/queries'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -26,7 +27,7 @@ export default function Home() {
           Share your thoughts. <span className="text-brand">Message anyone.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-lg text-neutral-600 dark:text-neutral-400">
-          DHGRAM is a simple space for students to post thoughts and talk to each other, one-to-one.
+          <BrandName /> is a simple space for students to post thoughts and talk to each other, one-to-one.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link to="/feed" className="btn-primary px-6 py-3">
@@ -72,7 +73,7 @@ export default function Home() {
 
       <section className="border-y border-neutral-200 bg-white py-16 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="text-center text-2xl font-bold">How DHGRAM Works</h2>
+          <h2 className="text-center text-2xl font-bold">How <BrandName /> Works</h2>
           <p className="mt-1 text-center text-sm text-neutral-500">Simple. Reliable. Student focused.</p>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {steps.map((s) => (

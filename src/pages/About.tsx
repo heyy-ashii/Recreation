@@ -1,6 +1,7 @@
 import { Code2, LogOut, Mail, MessageCircle, MessageSquare, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AuthPanel from '../components/AuthPanel'
+import BrandName from '../components/BrandName'
 import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -23,10 +24,10 @@ export default function About() {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <section className="max-w-3xl">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-          About DHGRAM — <span className="text-brand">Share & connect.</span>
+          About <BrandName /> — <span className="text-brand">Share & connect.</span>
         </h1>
         <p className="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
-          DHGRAM is a simple space for students to share thoughts and message each other, one-to-one.
+          <BrandName /> is a simple space for students to share thoughts and message each other, one-to-one.
         </p>
       </section>
 
@@ -49,7 +50,7 @@ export default function About() {
       </section>
 
       <section className="mt-14">
-        <h2 className="text-2xl font-bold">How DHGRAM Works</h2>
+        <h2 className="text-2xl font-bold">How <BrandName /> Works</h2>
         <p className="text-sm text-neutral-500">Simple. Reliable. Student focused.</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {steps.map((s) => (
