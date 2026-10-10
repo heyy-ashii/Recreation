@@ -260,6 +260,82 @@ describe('posts', () => {
 });
 
 
+describe('peer messages', () => {
+  it('requires a login and hides the directory from guests', async () => {
+    expect((await request(app).get('/api/v1/messages')).status).toBe(401);
+    expect((await request(app).get('/api/v1/messages/directory')).status).toBe(401);
+  });
+
+  it('lists students (minus self), starts a chat and exchanges messages', async () => {
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Peer One', username: 'peerone', password: 'peerone1' });
+    await User.create({ name: 'Peer Two', username: 'peertwo', password: 'peertwo1' });
+    const { agent: one } = await login('peerone', 'peerone1');
+    const { agent: two } = await login('peertwo', 'peertwo1');
+
+    const dir = await one.get('/api/v1/messages/directory');
+    expect(dir.status).toBe(200);
+    expect(dir.body.data.users.some((u) => u.username === 'peerone')).toBe(false);
+    const other = dir.body.data.users.find((u) => u.username === 'peertwo');
+    expect(other).toBeTruthy();
+
+    expect((await one.post('/api/v1/messages/start').send({ userId: other._id })).status).toBe(201);
+    const meId = (await one.get('/api/v1/auth/me')).body.data.user._id;
+    expect((await one.post('/api/v1/messages/start').send({ userId: meId })).status).toBe(400);
+
+    // Starting twice returns the same thread.
+    const again = await one.post('/api/v1/messages/start').send({ userId: other._id });
+    expect((await one.get('/api/v1/messages')).body.data.conversations).toHaveLength(1);
+    const id = again.body.data.conversation._id;
+
+    await one.post(`/api/v1/messages/${id}`).send({ body: 'hey there' });
+    const inbox = await two.get('/api/v1/messages');
+    expect(inbox.body.data.conversations[0]).toMatchObject({ lastMessage: 'hey there', unread: 1 });
+    expect(inbox.body.data.conversations[0].peer.username).toBe('peerone');
+    expect((await two.get('/api/v1/messages/unread')).body.data.unread).toBe(1);
+
+    const thread = await two.get(`/api/v1/messages/${id}`);
+    expect(thread.body.data.messages.map((m) => m.body)).toEqual(['hey there']);
+    expect(thread.body.data.messages[0].mine).toBe(false);
+
+    await two.post(`/api/v1/messages/${id}`).send({ body: 'hi!' });
+    const mine = await one.get(`/api/v1/messages/${id}`);
+    expect(mine.body.data.messages.map((m) => m.body)).toEqual(['hey there', 'hi!']);
+    expect(mine.body.data.messages[0].mine).toBe(true);
+
+    // A third student cannot read someone else's thread.
+    await User.create({ name: 'Nosy Parker', username: 'nosyparker', password: 'nosypass1' });
+    const { agent: nosy } = await login('nosyparker', 'nosypass1');
+    expect((await nosy.get(`/api/v1/messages/${id}`)).status).toBe(404);
+    expect((await nosy.post(`/api/v1/messages/${id}`).send({ body: 'peek' })).status).toBe(404);
+  });
+
+  it('drops peer messages older than the retention window', async () => {
+    const { PeerConversation, PeerMessage } = await import('../models/PeerChat.js');
+    const { User } = await import('../models/User.js');
+    const mongoose = (await import('mongoose')).default;
+    // Fresh pair so the thread only holds the messages we plant here.
+    await User.create({ name: 'Ret One', username: 'retone', password: 'retone1' });
+    await User.create({ name: 'Ret Two', username: 'rettwo', password: 'rettwo1' });
+    const { agent: one } = await login('retone', 'retone1');
+    const dir = await one.get('/api/v1/messages/directory?q=rettwo');
+    const other = dir.body.data.users.find((u) => u.username === 'rettwo');
+    const id = (await one.post('/api/v1/messages/start').send({ userId: other._id })).body.data.conversation._id;
+
+    const meId = (await one.get('/api/v1/auth/me')).body.data.user._id;
+    await PeerMessage.create({ conversation: id, sender: meId, body: 'old peer message' });
+    const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    // Mongoose's timestamps would reset createdAt on an update, so go through the
+    // driver to age the row.
+    await PeerMessage.collection.updateMany({ conversation: new mongoose.Types.ObjectId(id) }, { $set: { createdAt: old } });
+
+    const thread = await one.get(`/api/v1/messages/${id}`);
+    expect(thread.body.data.messages).toHaveLength(0);
+    expect(thread.body.data.conversation.lastMessage).toBe('');
+    expect(await PeerConversation.countDocuments({})).toBeGreaterThan(0);
+  });
+});
+
 describe('security', () => {
   it('does not reflect arbitrary origins and hides stack details', async () => {
     const res = await request(app).get('/api/v1/health').set('Origin', 'https://evil.com');

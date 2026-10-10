@@ -115,7 +115,7 @@ export function buildWhere(query = {}, map = {}) {
     if (key === '$expr' || key === '$where' || key === '$jsonSchema') {
       throw new AppError(`Unsupported query operator: ${key}`, 500);
     }
-    const column = map[key];
+    const column = key === '_id' ? 'id' : map[key];
     if (!column) throw new AppError(`Unsupported query field: ${key}`, 500);
     buildOne(where, column, cond);
   }

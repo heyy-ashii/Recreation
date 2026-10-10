@@ -76,3 +76,29 @@ export interface Conversation {
   unreadForAdmin: number
   unreadForUser: number
 }
+
+export type PeerUser = Pick<User, '_id' | 'name' | 'username'>
+
+export interface MessageThread {
+  _id: string
+  peer: PeerUser
+  lastMessage: string
+  lastMessageAt: string
+  unread: number
+}
+
+export interface PeerMessage {
+  _id: string
+  body: string
+  sender: string
+  mine: boolean
+  createdAt: string
+}
+
+export interface UserDirectory {
+  results: number
+  total: number
+  page: number
+  pages: number
+  data: { users: PeerUser[] }
+}

@@ -111,13 +111,51 @@ const postSpec = {
   publicJSON: (p) => ({ ...p }),
 };
 
+const peerConversationSpec = {
+  name: 'PeerConversations',
+  table: 'app_peer_conversations',
+  columns: {
+    userA: 'user_a',
+    userB: 'user_b',
+    lastMessage: 'last_message',
+    lastMessageAt: 'last_message_at',
+    unreadForA: 'unread_for_a',
+    unreadForB: 'unread_for_b',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  dates: dateFields(['lastMessageAt']),
+  numbers: ['unreadForA', 'unreadForB'],
+  defaults: { lastMessage: '', unreadForA: 0, unreadForB: 0, lastMessageAt: () => new Date() },
+  upsertOn: ['user_a', 'user_b'],
+  publicJSON: (c) => ({ ...c }),
+};
+
+const peerMessageSpec = {
+  name: 'PeerMessages',
+  table: 'app_peer_messages',
+  columns: {
+    conversation: 'conversation_id',
+    sender: 'sender_id',
+    body: 'body',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  dates: dateFields(),
+  publicJSON: (m) => ({ _id: m._id, conversation: m.conversation, sender: m.sender, body: m.body, createdAt: m.createdAt }),
+};
+
 export const SupabaseUser = createCollection(userSpec);
 export const SupabaseOtp = createCollection(otpSpec);
 export const SupabaseConversation = createCollection(conversationSpec);
 export const SupabaseMessage = createCollection(messageSpec);
 export const SupabasePost = createCollection(postSpec);
+export const SupabasePeerConversation = createCollection(peerConversationSpec);
+export const SupabasePeerMessage = createCollection(peerMessageSpec);
 
 conversationSpec.populates = { user: SupabaseUser };
 postSpec.populates = { author: SupabaseUser };
+peerConversationSpec.populates = { userA: SupabaseUser, userB: SupabaseUser };
+peerMessageSpec.populates = { sender: SupabaseUser };
 
 export const publicUser = userSpec.publicJSON;

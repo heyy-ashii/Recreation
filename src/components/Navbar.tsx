@@ -11,12 +11,12 @@ const links: NavItem[] = [
   { key: 'home', to: '/', label: 'Home', icon: Home },
   { key: 'feed', to: '/feed', label: 'Thoughts', icon: MessageSquare },
   { key: 'discover', to: '/discover', label: 'Explore', icon: Compass },
-  { key: 'messages', label: 'Messages', icon: MessageCircle },
+  { key: 'messages', to: '/messages', label: 'Messages', icon: MessageCircle },
   { key: 'about', to: '/about', label: 'About', icon: Info },
 ]
 
 export default function Navbar() {
-  const { theme, toggleTheme, setChatOpen } = useUi()
+  const { theme, toggleTheme } = useUi()
   const { user, isAdmin } = useAuth()
   const navItems = isAdmin ? links.filter((l) => l.key !== 'messages') : links
 
@@ -26,31 +26,21 @@ export default function Navbar() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
           <Logo />
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-            {navItems.map((l) =>
-              l.to ? (
-                <NavLink
-                  key={l.key}
-                  to={l.to}
-                  end={l.to === '/'}
-                  className={({ isActive }) =>
-                    cn(
-                      'rounded-full px-4 py-2 text-sm font-medium transition',
-                      isActive ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white',
-                    )
-                  }
-                >
-                  {l.label}
-                </NavLink>
-              ) : (
-                <button
-                  key={l.key}
-                  onClick={() => setChatOpen(true)}
-                  className="rounded-full px-4 py-2 text-sm font-medium text-neutral-500 transition hover:text-neutral-900 dark:hover:text-white"
-                >
-                  {l.label}
-                </button>
-              ),
-            )}
+            {navItems.map((l) => (
+              <NavLink
+                key={l.key}
+                to={l.to!}
+                end={l.to === '/'}
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-full px-4 py-2 text-sm font-medium transition',
+                    isActive ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white',
+                  )
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
           </nav>
           <div className="flex items-center gap-2">
             <button className="btn-ghost p-2" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
@@ -80,30 +70,19 @@ export default function Navbar() {
         style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
         aria-label="Mobile"
       >
-        {navItems.map((l) =>
-          l.to ? (
-            <NavLink
-              key={l.key}
-              to={l.to}
-              end={l.to === '/'}
-              className={({ isActive }) =>
-                cn('flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold uppercase tracking-wide', isActive ? 'text-neutral-900 dark:text-white' : 'text-neutral-400')
-              }
-            >
-              <l.icon className="size-5" />
-              {l.label}
-            </NavLink>
-          ) : (
-            <button
-              key={l.key}
-              onClick={() => setChatOpen(true)}
-              className="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400"
-            >
-              <l.icon className="size-5" />
-              {l.label}
-            </button>
-          ),
-        )}
+        {navItems.map((l) => (
+          <NavLink
+            key={l.key}
+            to={l.to!}
+            end={l.to === '/'}
+            className={({ isActive }) =>
+              cn('flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold uppercase tracking-wide', isActive ? 'text-neutral-900 dark:text-white' : 'text-neutral-400')
+            }
+          >
+            <l.icon className="size-5" />
+            {l.label}
+          </NavLink>
+        ))}
       </nav>
     </>
   )
