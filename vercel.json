@@ -10,6 +10,9 @@
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
+  "crons": [
+    { "path": "/api/v1/chat/cron/cleanup", "schedule": "0 3 * * *" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

@@ -1,4 +1,4 @@
-import { Compass, Home, Info, LayoutDashboard, LogIn, Moon, Search, Sun, User as UserIcon } from 'lucide-react'
+import { Compass, Home, Info, LayoutDashboard, LogIn, MessageSquare, Moon, Search, Sun, User as UserIcon } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
@@ -7,6 +7,7 @@ import Logo from './Logo'
 
 const links = [
   { to: '/', label: 'Home', icon: Home },
+  { to: '/feed', label: 'Thoughts', icon: MessageSquare },
   { to: '/discover', label: 'Discover', icon: Compass },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/about', label: 'About', icon: Info },
@@ -62,7 +63,7 @@ export default function Navbar() {
       </header>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-neutral-800 dark:bg-neutral-950"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-neutral-800 dark:bg-neutral-950"
         aria-label="Mobile"
       >
         {links.map((l) => (

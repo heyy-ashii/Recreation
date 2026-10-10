@@ -256,6 +256,19 @@ export function createCollection(spec) {
       const { rows } = await query(`select 1 from ${table} where ${where.toString()} limit 1`, where.params);
       return rows.length > 0;
     },
+    updateMany: async (filter = {}, update = {}) => {
+      const where = buildWhere(filter, map);
+      const columns = toColumns(spec, update.$set || update);
+      const keys = Object.keys(columns);
+      if (!keys.length) return 0;
+      const offset = where.params.length;
+      const assignments = keys.map((k, i) => `${k} = $${offset + i + 1}`).join(', ');
+      const { rowCount } = await query(
+        `update ${table} set ${assignments} where ${where.toString()}`,
+        [...where.params, ...keys.map((k) => columns[k])],
+      );
+      return rowCount ?? 0;
+    },
     deleteMany: async (filter = {}) => {
       const where = buildWhere(filter, map);
       const { rowCount } = await query(`delete from ${table} where ${where.toString()}`, where.params);

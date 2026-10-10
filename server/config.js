@@ -73,6 +73,16 @@ export const config = {
     maxFailedAttempts: 5,
     lockMinutes: 15,
   },
+  chat: {
+    // Messages older than this are deleted so the chat stays lean. Applied when a
+    // conversation is read and by the daily cleanup endpoint.
+    get retentionDays() {
+      return Number(env.CHAT_RETENTION_DAYS) || 30;
+    },
+  },
+  get cronSecret() {
+    return env.CRON_SECRET || '';
+  },
 };
 
 export const emailConfigured = () => Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);

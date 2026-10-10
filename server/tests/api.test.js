@@ -181,6 +181,85 @@ describe('chat', () => {
   });
 });
 
+describe('chat retention', () => {
+  it('drops messages older than the retention window on read', async () => {
+    const { Conversation, Message } = await import('../models/Chat.js');
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Retention', username: 'retention', password: 'password1' });
+    const { agent: user } = await login('retention', 'password1');
+    const me = (await user.get('/api/v1/auth/me')).body.data.user;
+    const conv = await Conversation.create({ user: me._id });
+    const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await Message.create({ conversation: conv._id, sender: me._id, senderRole: 'user', body: 'old message', createdAt: old });
+
+    const thread = await user.get('/api/v1/chat/me');
+    expect(thread.body.data.messages).toHaveLength(0);
+    expect(thread.body.data.conversation.lastMessage).toBe('');
+  });
+
+  it('guards the cleanup endpoint with the cron secret', async () => {
+    process.env.CRON_SECRET = '';
+    expect((await request(app).get('/api/v1/chat/cron/cleanup')).status).toBe(503);
+    process.env.CRON_SECRET = 'cron-secret-123';
+    expect((await request(app).get('/api/v1/chat/cron/cleanup')).status).toBe(401);
+    const ok = await request(app).get('/api/v1/chat/cron/cleanup').set('Authorization', 'Bearer cron-secret-123');
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.retentionDays).toBe(30);
+    process.env.CRON_SECRET = '';
+  });
+});
+
+describe('posts', () => {
+  it('requires a login to post but not to read', async () => {
+    expect((await request(app).get('/api/v1/posts')).status).toBe(200);
+    expect((await request(app).post('/api/v1/posts').send({ body: 'hi' })).status).toBe(401);
+  });
+
+  it('lets an account holder share, like, edit and delete a thought', async () => {
+    const { agent: user } = await login('newbie', 'newpassword1');
+    const created = await user.post('/api/v1/posts').send({ body: 'My first thought' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.post._id;
+    expect(created.body.data.post).toMatchObject({ body: 'My first thought', likes: 0, likedByMe: false, mine: true });
+    expect(created.body.data.post.author).toMatchObject({ name: 'New', username: 'newbie' });
+
+    const feed = await request(app).get('/api/v1/posts');
+    expect(feed.body.total).toBe(1);
+    expect(feed.body.data.posts[0].likedByMe).toBe(false);
+
+    const liked = await user.post(`/api/v1/posts/${id}/like`);
+    expect(liked.body.data.post).toMatchObject({ likes: 1, likedByMe: true });
+    const unliked = await user.post(`/api/v1/posts/${id}/like`);
+    expect(unliked.body.data.post).toMatchObject({ likes: 0, likedByMe: false });
+
+    const edited = await user.patch(`/api/v1/posts/${id}`).send({ body: 'Edited thought' });
+    expect(edited.body.data.post.body).toBe('Edited thought');
+
+    const { User } = await import('../models/User.js');
+    await User.create({ name: 'Other', username: 'other', password: 'otherpass1' });
+    const { agent: other } = await login('other', 'otherpass1');
+    expect((await other.patch(`/api/v1/posts/${id}`).send({ body: 'nope' })).status).toBe(403);
+
+    expect((await user.delete(`/api/v1/posts/${id}`)).status).toBe(204);
+    expect((await request(app).get('/api/v1/posts')).body.total).toBe(0);
+  });
+
+  it('hides a flagged post from the public feed for admins only', async () => {
+    const { agent: user } = await login('newbie', 'newpassword1');
+    const post = (await user.post('/api/v1/posts').send({ body: 'Hide me' })).body.data.post;
+
+    const { agent: admin } = await login('admin', 'adminpass1');
+    expect((await user.patch(`/api/v1/posts/${post._id}`).send({ hidden: true })).status).toBe(403);
+    const hidden = await admin.patch(`/api/v1/posts/${post._id}`).send({ hidden: true });
+    expect(hidden.body.data.post.hidden).toBe(true);
+
+    expect((await request(app).get('/api/v1/posts')).body.total).toBe(0);
+    expect((await admin.get('/api/v1/posts')).body.total).toBe(1);
+    await admin.delete(`/api/v1/posts/${post._id}`);
+  });
+});
+
+
 describe('security', () => {
   it('does not reflect arbitrary origins and hides stack details', async () => {
     const res = await request(app).get('/api/v1/health').set('Origin', 'https://evil.com');

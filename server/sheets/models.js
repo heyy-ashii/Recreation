@@ -44,12 +44,22 @@ const messageSpec = {
   publicJSON: (m) => ({ _id: m._id, body: m.body, senderRole: m.senderRole, sender: m.sender, createdAt: m.createdAt }),
 };
 
+const postSpec = {
+  name: 'Posts',
+  dates: dateFields(),
+  booleans: ['hidden'],
+  defaults: { likes: [], hidden: false },
+  publicJSON: (p) => ({ ...p }),
+};
+
 export const SheetsUser = createCollection(userSpec);
 export const SheetsOtp = createCollection(otpSpec);
 export const SheetsConversation = createCollection(conversationSpec);
 export const SheetsMessage = createCollection(messageSpec);
+export const SheetsPost = createCollection(postSpec);
 
 conversationSpec.populates = { user: SheetsUser };
+postSpec.populates = { author: SheetsUser };
 
 // Shared shape for a user as returned to clients, used for .lean() results.
 export const publicUser = userSpec.publicJSON;

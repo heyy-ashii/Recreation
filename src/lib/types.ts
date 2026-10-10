@@ -47,6 +47,26 @@ export interface ChatMessage {
   createdAt: string
 }
 
+export interface Post {
+  _id: string
+  body: string
+  author: Pick<User, '_id' | 'name' | 'username'>
+  likes: number
+  likedByMe: boolean
+  mine: boolean
+  hidden: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PostList {
+  results: number
+  total: number
+  page: number
+  pages: number
+  data: { posts: Post[] }
+}
+
 export interface Conversation {
   _id: string
   user: Pick<User, '_id' | 'name' | 'username' | 'email'>

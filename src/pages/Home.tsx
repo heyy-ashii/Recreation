@@ -1,9 +1,10 @@
-import { ArrowRight, BadgeCheck, Compass, Share2, Sparkles } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Compass, MessageSquare, Share2, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ProgramGrid, ProgramGridSkeleton } from '../components/ProgramCard'
 import { EmptyState, ErrorState } from '../components/ui'
-import { usePrograms } from '../lib/queries'
+import { usePrograms, usePosts } from '../lib/queries'
 import { usePageMeta } from '../lib/usePageMeta'
+import { formatShort } from '../lib/utils'
 
 const steps = [
   { icon: Compass, title: 'Discover', text: 'We collect opportunity posters from colleges, institutions, and organizations.' },
@@ -14,6 +15,8 @@ const steps = [
 export default function Home() {
   usePageMeta()
   const { data, isLoading, error, refetch } = usePrograms({ limit: 8 })
+  const { data: thoughts } = usePosts({ limit: 3 })
+  const posts = thoughts?.data.posts ?? []
 
   return (
     <>
@@ -28,13 +31,45 @@ export default function Home() {
           Discover quizzes, workshops, paper presentations, hackathons, conferences, and competitions curated by OGEA.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link to="/discover" className="btn-primary px-6 py-3">
+          <Link to="/feed" className="btn-primary px-6 py-3">
+            Share a Thought <MessageSquare className="size-4" />
+          </Link>
+          <Link to="/discover" className="btn-outline px-6 py-3">
             Explore Opportunities <ArrowRight className="size-4" />
           </Link>
-          <Link to="/about" className="btn-outline px-6 py-3">
-            Learn More
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-16">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Latest Thoughts</h2>
+            <p className="text-sm text-neutral-500">What the community is talking about</p>
+          </div>
+          <Link to="/feed" className="btn-ghost shrink-0">
+            View all <ArrowRight className="size-4" />
           </Link>
         </div>
+        {posts.length ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            {posts.map((p) => (
+              <Link key={p._id} to="/feed" className="card p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-full bg-brand/10 text-sm font-bold text-brand">
+                    {p.author.name.slice(0, 1).toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{p.author.name || 'Student'}</p>
+                    <p className="text-xs text-neutral-400">{formatShort(p.createdAt)}</p>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">{p.body}</p>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No thoughts yet">Be the first to share something on the Thoughts page.</EmptyState>
+        )}
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16">

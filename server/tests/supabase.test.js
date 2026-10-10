@@ -17,7 +17,7 @@ let app;
 let db;
 let closePool;
 
-const TABLES = ['app_messages', 'app_conversations', 'app_otps', 'app_programs', 'app_users'];
+const TABLES = ['app_messages', 'app_conversations', 'app_otps', 'app_programs', 'app_posts', 'app_users'];
 
 beforeAll(async () => {
   if (!DB_URL) return;
@@ -176,5 +176,47 @@ describeIfDb('OGEA on Supabase (Postgres)', () => {
 
     const closed = await admin.patch(`/api/v1/chat/conversations/${convoId}`).send({ status: 'closed' });
     expect(closed.body.data.conversation.status).toBe('closed');
+  });
+
+  it('drops chat messages older than the retention window', async () => {
+    const { Message } = await import('../models/Chat.js');
+    const user = request.agent(app);
+    await user.post('/api/v1/auth/login').send({ identifier: 'chat.student', password: '3412' });
+    await user.post('/api/v1/chat/me/messages').send({ body: 'soon to be purged' });
+    const conv = (await user.get('/api/v1/chat/me')).body.data.conversation;
+    const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await Message.updateMany({ conversation: conv._id }, { $set: { createdAt: old } });
+
+    const thread = await user.get('/api/v1/chat/me');
+    expect(thread.body.data.messages).toHaveLength(0);
+    expect(thread.body.data.conversation.lastMessage).toBe('');
+  });
+
+  it('shares and moderates posts', async () => {
+    const user = request.agent(app);
+    await user.post('/api/v1/auth/login').send({ identifier: 'chat.student', password: '3412' });
+
+    expect((await request(app).get('/api/v1/posts')).status).toBe(200);
+    const created = await user.post('/api/v1/posts').send({ body: 'Hello from Postgres' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.post._id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(created.body.data.post).toMatchObject({ likes: 0, likedByMe: false, mine: true });
+    expect(created.body.data.post.author.username).toBe('chat.student');
+
+    const liked = await user.post(`/api/v1/posts/${id}/like`);
+    expect(liked.body.data.post).toMatchObject({ likes: 1, likedByMe: true });
+
+    const guest = await request(app).get('/api/v1/posts');
+    expect(guest.body.total).toBe(1);
+    expect(guest.body.data.posts[0].likedByMe).toBe(false);
+
+    const admin = request.agent(app);
+    await admin.post('/api/v1/auth/login').send({ identifier: 'admin', password: 'adminpass1' });
+    const hidden = await admin.patch(`/api/v1/posts/${id}`).send({ hidden: true });
+    expect(hidden.body.data.post.hidden).toBe(true);
+    expect((await request(app).get('/api/v1/posts')).body.total).toBe(0);
+
+    expect((await user.delete(`/api/v1/posts/${id}`)).status).toBe(204);
   });
 });

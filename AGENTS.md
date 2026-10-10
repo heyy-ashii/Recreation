@@ -12,7 +12,7 @@ Frontend in `src/`, API in `server/`, Vercel serverless entry in `api/index.js`.
 - `npm run lint` / `npm run typecheck` / `npm run build`
 - `npm run seed:admin` – needs `ADMIN_USERNAME` and `ADMIN_PASSWORD`
 - `npm run sheets:sync` – copy programs from MongoDB into the Google Sheet
-- `npm run supabase:apply` – apply `supabase/migrations/0001_init.sql` to `SUPABASE_DB_URL`
+- `npm run supabase:apply` – apply every `supabase/migrations/*.sql` to `SUPABASE_DB_URL`
 
 ## Data layer
 

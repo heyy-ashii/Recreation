@@ -22,9 +22,10 @@ function startFakeSheet() {
     Conversations: [],
     Messages: [],
     Programs: [],
+    Posts: [],
   };
-  const JSON_COLUMNS = { imageurls: true, tags: true };
-  const BOOLEAN_COLUMNS = { emailVerified: true };
+  const JSON_COLUMNS = { imageurls: true, tags: true, likes: true };
+  const BOOLEAN_COLUMNS = { emailVerified: true, hidden: true };
 
   const eq = (a, b) => {
     if (typeof a === 'boolean' || typeof b === 'boolean') return Boolean(a) === Boolean(b);
@@ -58,6 +59,10 @@ function startFakeSheet() {
     for (const [key, cond] of Object.entries(query || {})) {
       if (key === '$or') {
         if (!cond.some((sub) => match(doc, sub))) return false;
+        continue;
+      }
+      if (key === '$and') {
+        if (!cond.every((sub) => match(doc, sub))) return false;
         continue;
       }
       const value = doc[key];
@@ -155,6 +160,13 @@ function startFakeSheet() {
             if (idx === -1) return send({ deleted: 0 });
             rows.splice(idx, 1);
             return send({ deleted: 1 });
+          }
+          case 'deleteMany': {
+            const rows = rowsOf(data.collection);
+            const keep = rows.filter((r) => !match(rowToObject(r), data.query));
+            const deleted = rows.length - keep.length;
+            tabs[data.collection] = keep;
+            return send({ deleted });
           }
           case 'countDocuments':
             return send({ total: rowsOf(data.collection).map(rowToObject).filter((r) => match(r, data.query)).length });
@@ -344,6 +356,47 @@ describe('OGEA on Google Sheets only', () => {
 
     await admin.patch(`/api/v1/chat/conversations/${cid}`).send({ status: 'closed' });
     expect((await admin.get('/api/v1/chat/conversations?status=closed')).body.data.conversations).toHaveLength(1);
+  });
+
+  it('drops chat messages older than the retention window', async () => {
+    const { Message } = await import('../models/Chat.js');
+    const user = request.agent(app);
+    await user.post('/api/v1/auth/login').send({ identifier: 'chat.student', password: '3412' });
+    await user.post('/api/v1/chat/me/messages').send({ body: 'soon to be purged' });
+    const conv = (await user.get('/api/v1/chat/me')).body.data.conversation;
+    const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await Message.updateMany({ conversation: conv._id }, { $set: { createdAt: old } });
+
+    const thread = await user.get('/api/v1/chat/me');
+    expect(thread.body.data.messages).toHaveLength(0);
+    expect(thread.body.data.conversation.lastMessage).toBe('');
+  });
+
+  it('shares and moderates posts through the sheet', async () => {
+    const user = request.agent(app);
+    await user.post('/api/v1/auth/login').send({ identifier: 'chat.student', password: '3412' });
+
+    expect((await request(app).get('/api/v1/posts')).status).toBe(200);
+    const created = await user.post('/api/v1/posts').send({ body: 'Hello from the sheet' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.post._id;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(created.body.data.post).toMatchObject({ likes: 0, likedByMe: false, mine: true });
+    expect(created.body.data.post.author.username).toBe('chat.student');
+
+    const liked = await user.post(`/api/v1/posts/${id}/like`);
+    expect(liked.body.data.post).toMatchObject({ likes: 1, likedByMe: true });
+
+    const guest = await request(app).get('/api/v1/posts');
+    expect(guest.body.total).toBe(1);
+    expect(guest.body.data.posts[0].likedByMe).toBe(false);
+
+    const { agent: admin } = await adminLogin();
+    const hidden = await admin.patch(`/api/v1/posts/${id}`).send({ hidden: true });
+    expect(hidden.body.data.post.hidden).toBe(true);
+    expect((await request(app).get('/api/v1/posts')).body.total).toBe(0);
+
+    expect((await user.delete(`/api/v1/posts/${id}`)).status).toBe(204);
   });
 
   it('maps an unreachable sheet to 503, not a 500', async () => {

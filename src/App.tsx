@@ -6,6 +6,7 @@ import { PageSpinner } from './components/ui'
 import About from './pages/About'
 import Contact from './pages/Contact'
 import Discover from './pages/Discover'
+import Feed from './pages/Feed'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
@@ -25,6 +26,7 @@ export default function App() {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<Home />} />
+          <Route path="feed" element={<Feed />} />
           <Route path="discover" element={<Discover />} />
           <Route path="search" element={<Search />} />
           <Route path="about" element={<About />} />

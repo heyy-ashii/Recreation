@@ -94,11 +94,30 @@ const messageSpec = {
   publicJSON: (m) => ({ _id: m._id, body: m.body, senderRole: m.senderRole, sender: m.sender, createdAt: m.createdAt }),
 };
 
+const postSpec = {
+  name: 'Posts',
+  table: 'app_posts',
+  columns: {
+    author: 'author_id',
+    body: 'body',
+    likes: 'likes',
+    hidden: 'hidden',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  dates: dateFields(),
+  booleans: ['hidden'],
+  defaults: { likes: [], hidden: false },
+  publicJSON: (p) => ({ ...p }),
+};
+
 export const SupabaseUser = createCollection(userSpec);
 export const SupabaseOtp = createCollection(otpSpec);
 export const SupabaseConversation = createCollection(conversationSpec);
 export const SupabaseMessage = createCollection(messageSpec);
+export const SupabasePost = createCollection(postSpec);
 
 conversationSpec.populates = { user: SupabaseUser };
+postSpec.populates = { author: SupabaseUser };
 
 export const publicUser = userSpec.publicJSON;

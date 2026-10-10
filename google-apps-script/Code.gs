@@ -27,12 +27,13 @@ var COLLECTIONS = {
   Conversations: ['id', 'user', 'status', 'lastMessage', 'lastMessageAt', 'unreadForAdmin', 'unreadForUser', 'createdAt', 'updatedAt'],
   Messages: ['id', 'conversation', 'sender', 'senderRole', 'body', 'createdAt', 'updatedAt'],
   Programs: ['id', 'title', 'organizer', 'type', 'category', 'venue', 'about', 'registrationLink', 'contact', 'imageurls', 'tags', 'status', 'deadline', 'eventDate', 'createdBy', 'createdAt', 'updatedAt'],
+  Posts: ['id', 'author', 'body', 'likes', 'hidden', 'createdAt', 'updatedAt'],
 };
 
 // Values that must stay JSON, not strings.
-var JSON_COLUMNS = { imageurls: true, tags: true };
+var JSON_COLUMNS = { imageurls: true, tags: true, likes: true };
 // Values that must be stored as booleans.
-var BOOLEAN_COLUMNS = { emailVerified: true };
+var BOOLEAN_COLUMNS = { emailVerified: true, hidden: true };
 var PROGRAM_STATUSES = ['Live', 'Recent', 'Closed'];
 
 /* ------------------------------------------------------------------ */
@@ -97,6 +98,7 @@ function handle_(e, action, body) {
       case 'upsert': return json_({ row: upsert_(body) });
       case 'deleteOne': return json_({ deleted: deleteOne_(body) });
       case 'deleteById': return json_({ deleted: deleteById_(body) });
+      case 'deleteMany': return json_({ deleted: deleteMany_(body) });
       case 'countDocuments': return json_({ total: find_(body).length });
       case 'sum': return json_({ total: sum_(body) });
       case 'clear': return json_({ deleted: clear_(body) });
@@ -243,6 +245,30 @@ function deleteById_(body) {
   }
 }
 
+function deleteMany_(body) {
+  var name = body.collection;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = sheetFor_(name);
+    var values = sheet.getDataRange().getValues();
+    if (values.length < 2) return 0;
+    var header = values[0];
+    var keep = [header];
+    var deleted = 0;
+    for (var i = 1; i < values.length; i++) {
+      if (match_(rowToObject_(header, values[i]), body.query || {})) deleted += 1;
+      else keep.push(values[i]);
+    }
+    if (!deleted) return 0;
+    sheet.getRange(2, 1, values.length - 1, header.length).clearContent();
+    if (keep.length > 1) sheet.getRange(2, 1, keep.length - 1, header.length).setValues(keep.slice(1));
+    return deleted;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function sum_(body) {
   return find_({ collection: body.collection, query: body.query || {} })
     .reduce(function (acc, row) { return acc + (Number(row[body.field]) || 0); }, 0);
@@ -269,6 +295,14 @@ function clear_(body) {
 function match_(doc, query) {
   for (var key in query) {
     var cond = query[key];
+    if (key === '$or') {
+      if (!cond.some(function (sub) { return match_(doc, sub); })) return false;
+      continue;
+    }
+    if (key === '$and') {
+      if (!cond.every(function (sub) { return match_(doc, sub); })) return false;
+      continue;
+    }
     var value = doc[key];
     if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) {
       if (!opMatch_(value, cond)) return false;

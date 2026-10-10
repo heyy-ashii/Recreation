@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-import type { Program, ProgramList } from './types'
+import type { PostList, Program, ProgramList } from './types'
 
 export type ProgramFilters = { q?: string; category?: string; status?: string; sort?: string; limit?: number; page?: number }
 
@@ -29,3 +29,10 @@ export type Stats = { users: number; admins: number; disabled: number; programs:
 
 export const useStats = () =>
   useQuery({ queryKey: ['admin', 'stats'], queryFn: () => api<{ data: Stats }>('/admin/stats').then((r) => r.data), refetchInterval: 30000 })
+
+export const usePosts = ({ page = 1, limit = 20, mine = false }: { page?: number; limit?: number; mine?: boolean } = {}) =>
+  useQuery({
+    queryKey: ['posts', { page, limit, mine }],
+    queryFn: () => api<PostList>('/posts', { query: { page, limit, mine: mine ? 'true' : undefined } }),
+    placeholderData: (prev) => prev,
+  })

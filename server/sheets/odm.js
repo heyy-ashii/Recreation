@@ -302,6 +302,12 @@ export function createCollection(spec) {
     },
     countDocuments: async (query = {}) => (await all()).filter((d) => matches(d, query)).length,
     exists: async (query = {}) => (await all()).some((d) => matches(d, query)),
+    updateMany: async (query = {}, update = {}) => {
+      const patch = update.$set || update;
+      const found = (await all()).filter((d) => matches(d, query));
+      for (const d of found) await sheetCollection.updateById(name, d.id, patch);
+      return found.length;
+    },
     deleteMany: async (query = {}) => {
       const found = (await all()).filter((d) => matches(d, query));
       for (const d of found) await sheetCollection.deleteById(name, d.id);
