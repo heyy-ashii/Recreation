@@ -1,8 +1,8 @@
-import { Mail, MessageCircle, MessageSquare, Send, Timer, Users } from 'lucide-react'
+import { MessageCircle, MessageSquare, Send, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
-import { CONTACT_EMAIL, CREATOR_NAME } from '../lib/utils'
+import { CREATOR_NAME } from '../lib/utils'
 import Logo from './Logo'
 
 const YEAR = new Date().getFullYear()
@@ -50,9 +50,6 @@ export default function Footer() {
             <button type="button" className="btn-outline justify-start" onClick={() => setChatOpen(true)}>
               <MessageCircle className="size-4" /> Chat with Admin
             </button>
-            <a href={`mailto:${CONTACT_EMAIL}`} className="btn-ghost justify-start px-0" aria-label={`Email ${CONTACT_EMAIL}`}>
-              <Mail className="size-4" /> {CONTACT_EMAIL}
-            </a>
           </div>
         </div>
       </div>
