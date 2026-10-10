@@ -1,4 +1,4 @@
-# OGEA — Share & Message
+# DHGRAM — Share & Message
 
 A chat and thought-sharing platform for students: a public **Thoughts** feed, one-to-one **Messages** between students, a built-in **Chat with Admin**, and an admin dashboard. Sign-up is by name + admission number on the student roster.
 
@@ -98,11 +98,11 @@ npm run seed:admin   # create/update an admin (see below)
    | `SMTP_PORT` | for email OTP | `465` |
    | `SMTP_USER` | for email OTP | `ogea.sms@gmail.com` |
    | `SMTP_PASS` | for email OTP | the 16-char App Password |
-   | `MAIL_FROM` | optional | `OGEA <ogea.sms@gmail.com>` |
+   | `MAIL_FROM` | optional | `DHGRAM <ogea.sms@gmail.com>` |
    | `CORS_ORIGINS` | optional | only if another domain must call the API |
 
    > Without SMTP in production, sign-up codes only appear in *Vercel → Logs*. Set SMTP before you announce sign-ups.
-5. **Deploy**, then open `https://<your-app>.vercel.app/api/v1/health`. It should return `{"status":"success","message":"OGEA API running"}`.
+5. **Deploy**, then open `https://<your-app>.vercel.app/api/v1/health`. It should return `{"status":"success","message":"DHGRAM API running"}`.
 6. **Create the first admin** from your machine (once):
    ```bash
    MONGODB_URI="mongodb+srv://..." ADMIN_USERNAME=ashique ADMIN_PASSWORD='a-strong-password' ADMIN_EMAIL=ogea.sms@gmail.com npm run seed:admin

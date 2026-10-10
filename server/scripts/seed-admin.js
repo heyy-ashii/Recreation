@@ -5,7 +5,7 @@ import { datastore } from '../config.js';
 import { connectDB, disconnectDB } from '../db.js';
 import { User } from '../models/User.js';
 
-const { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL, ADMIN_NAME = 'OGEA Admin' } = process.env;
+const { ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL, ADMIN_NAME = 'DHGRAM Admin' } = process.env;
 if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
   console.error('Set ADMIN_USERNAME and ADMIN_PASSWORD (min 8 chars).');
   process.exit(1);

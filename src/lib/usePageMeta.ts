@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 
-const DEFAULT_DESC = 'OGEA is a simple space for students to share thoughts and message each other, one-to-one.'
+const DEFAULT_DESC = 'DHGRAM is a simple space for students to share thoughts and message each other, one-to-one.'
 
 export function usePageMeta(title?: string, description = DEFAULT_DESC) {
   useEffect(() => {
-    document.title = title ? `${title} | OGEA` : 'OGEA – Share & Message'
+    document.title = title ? `${title} | DHGRAM` : 'DHGRAM – Share & Message'
     document.querySelector('meta[name="description"]')?.setAttribute('content', description)
     document.querySelector('meta[property="og:title"]')?.setAttribute('content', document.title)
     document.querySelector('meta[property="og:description"]')?.setAttribute('content', description)

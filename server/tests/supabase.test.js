@@ -36,7 +36,7 @@ afterAll(async () => {
   if (closePool) await closePool();
 });
 
-describeIfDb('OGEA on Supabase (Postgres)', () => {
+describeIfDb('DHGRAM on Supabase (Postgres)', () => {
   it('reports the supabase datastore', async () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.body.datastore).toBe('supabase');

@@ -1,4 +1,4 @@
--- OGEA application schema for Supabase / Postgres.
+-- DHGRAM application schema for Supabase / Postgres.
 -- Tables are prefixed `app_` so they never collide with Supabase's own
 -- `auth`, `storage` and `realtime` schemas.
 --

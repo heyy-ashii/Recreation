@@ -33,7 +33,7 @@ export const config = {
     port: Number(env.SMTP_PORT) || 465,
     user: env.SMTP_USER || '',
     pass: env.SMTP_PASS || '',
-    from: env.MAIL_FROM || env.SMTP_USER || 'OGEA <ogea.sms@gmail.com>',
+    from: env.MAIL_FROM || env.SMTP_USER || 'DHGRAM <ogea.sms@gmail.com>',
   },
   sheets: {
     apiUrl: env.SHEETS_API_URL || '',

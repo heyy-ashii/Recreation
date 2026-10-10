@@ -81,7 +81,7 @@ export default function AuthPanel({ initialMode = 'login', onSuccess, compact }:
     e.preventDefault()
     if (mode === 'login') return run(async () => done(await auth.login(form.identifier, form.password), 'Welcome back!'))
     if (mode === 'signup')
-      return run(async () => done(await auth.signup({ name: form.name, admissionNo: form.admissionNo }), 'Account created. Welcome to OGEA!'))
+      return run(async () => done(await auth.signup({ name: form.name, admissionNo: form.admissionNo }), 'Account created. Welcome to DHGRAM!'))
     if (step === 'email') return sendCode()
     return run(async () => done(await auth.resetPassword({ email: form.email, code: form.code, password: form.password }), 'Password updated'))
   }

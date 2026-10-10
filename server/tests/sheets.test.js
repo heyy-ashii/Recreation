@@ -213,7 +213,7 @@ const adminLogin = async () => {
   return { agent, res };
 };
 
-describe('OGEA on Google Sheets only', () => {
+describe('DHGRAM on Google Sheets only', () => {
   it('reports the sheets datastore', async () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.body.datastore).toBe('sheets');
