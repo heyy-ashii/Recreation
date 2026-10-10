@@ -1,29 +1,21 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAdmin, RequireAuth } from './components/Guards'
 import PublicLayout from './components/PublicLayout'
 import { PageSpinner } from './components/ui'
 import About from './pages/About'
 import Contact from './pages/Contact'
-import Discover from './pages/Discover'
 import Feed from './pages/Feed'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
-import ProgramDetail from './pages/ProgramDetail'
 
 const Account = lazy(() => import('./pages/Account'))
 const Messages = lazy(() => import('./pages/Messages'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminUsers = lazy(() => import('./pages/admin/Users'))
-const AdminPrograms = lazy(() => import('./pages/admin/Programs'))
 const AdminChats = lazy(() => import('./pages/admin/Chats'))
-
-function SearchRedirect() {
-  const { search } = useLocation()
-  return <Navigate to={`/discover${search}`} replace />
-}
 
 export default function App() {
   return (
@@ -32,8 +24,6 @@ export default function App() {
         <Route element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path="feed" element={<Feed />} />
-          <Route path="discover" element={<Discover />} />
-          <Route path="search" element={<SearchRedirect />} />
           <Route
             path="messages"
             element={
@@ -44,7 +34,9 @@ export default function App() {
           />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
-          <Route path="programs/:id" element={<ProgramDetail />} />
+          <Route path="discover" element={<Navigate to="/feed" replace />} />
+          <Route path="programs/:id" element={<Navigate to="/feed" replace />} />
+          <Route path="search" element={<Navigate to="/feed" replace />} />
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<Login initialMode="signup" />} />
           <Route
@@ -67,7 +59,6 @@ export default function App() {
         >
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
-          <Route path="programs" element={<AdminPrograms />} />
           <Route path="chats" element={<AdminChats />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>

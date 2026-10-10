@@ -1,4 +1,4 @@
-import { FileText, MessagesSquare, ShieldCheck, Users } from 'lucide-react'
+import { MessagesSquare, ShieldCheck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageSpinner } from '../../components/ui'
 import { usePageMeta } from '../../lib/usePageMeta'
@@ -11,13 +11,12 @@ export default function Dashboard() {
   const cards = [
     { label: 'Users', value: data.users, sub: `${data.disabled} disabled`, icon: Users, to: '/admin/users' },
     { label: 'Admins', value: data.admins, sub: 'with full access', icon: ShieldCheck, to: '/admin/users?role=admin' },
-    { label: 'Programs', value: data.programs, sub: `${data.livePrograms} live`, icon: FileText, to: '/admin/programs' },
     { label: 'Open chats', value: data.openChats, sub: `${data.unreadMessages} unread messages`, icon: MessagesSquare, to: '/admin/chats' },
   ]
   return (
     <div>
       <h1 className="text-2xl font-bold">Dashboard</h1>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((c) => (
           <Link key={c.label} to={c.to} className="card p-5 transition hover:border-brand">
             <c.icon className="size-6 text-brand" />
@@ -28,8 +27,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link to="/admin/programs?new=1" className="btn-primary">Add program</Link>
-        <Link to="/admin/users?new=1" className="btn-outline">Add user</Link>
+        <Link to="/admin/users?new=1" className="btn-primary">Add user</Link>
         <Link to="/admin/chats" className="btn-outline">Open inbox</Link>
       </div>
     </div>

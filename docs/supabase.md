@@ -1,9 +1,9 @@
 # Supabase datastore
 
 OGEA can run entirely on Supabase (Postgres) instead of MongoDB or Google Sheets.
-Set one environment variable, `SUPABASE_DB_URL`, and users, OTPs, chats and
-programs all move to Postgres. Unset it and the app falls back to Sheets, then
-MongoDB. Nothing else in the code changes.
+Set one environment variable, `SUPABASE_DB_URL`, and users, OTPs, chats, posts
+and messages all move to Postgres. Unset it and the app falls back to Sheets,
+then MongoDB. Nothing else in the code changes.
 
 The driver lives in `server/supabase/`:
 
@@ -12,8 +12,7 @@ The driver lives in `server/supabase/`:
 | `db.js` | `pg` connection pool. SSL on for remote hosts, off for localhost. |
 | `sql.js` | Turns the Mongo-style filters the routes send into parameterised SQL. |
 | `odm.js` | Mongo-like collection API (`find`, `findOne`, `save`, `populate`, `aggregate`). |
-| `models.js` | Column maps and specs for users, OTPs, conversations and messages. |
-| `programsStore.js` | The programs store, matching the Mongo and Sheets stores. |
+| `models.js` | Column maps and specs for users, OTPs, conversations, messages, posts and peer chats. |
 
 The schema is `supabase/migrations/0001_init.sql`. Tables are prefixed `app_` so
 they never collide with Supabase's own `auth`, `storage` and `realtime` schemas.
@@ -67,8 +66,7 @@ Supabase mode.
 The migration enables Row Level Security on every `app_` table and adds no
 policies, so the publishable key can read nothing: password hashes and OTP codes
 are never exposed to the browser. The backend reaches the tables through the
-direct Postgres connection, which bypasses RLS. Programs get a public-read
-policy because the site lists them without a login.
+direct Postgres connection, which bypasses RLS.
 
 ## Testing
 
@@ -80,4 +78,4 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/ogea npm test
 ```
 
 It covers signup with OTP, the resend cooldown, login and lockout, the admin user
-lifecycle, programs CRUD and search, and the full chat flow.
+lifecycle, the posts feed, and the full chat flow.

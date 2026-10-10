@@ -1,40 +1,58 @@
-import { Mail, MessageCircle } from 'lucide-react'
+import { Mail, MessageCircle, MessageSquare, Send, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
 import { CONTACT_EMAIL, CREATOR_NAME } from '../lib/utils'
 import Logo from './Logo'
 
 const YEAR = new Date().getFullYear()
 
+const highlights = [
+  { icon: Users, label: 'Message any student' },
+  { icon: Timer, label: 'Chats clear after 30 days' },
+  { icon: MessageSquare, label: 'Share public thoughts' },
+]
+
 export default function Footer() {
   const { setChatOpen } = useUi()
+  const { user } = useAuth()
   return (
     <footer className="border-t border-neutral-200 bg-white pb-20 pt-12 md:pb-10 dark:border-neutral-800 dark:bg-neutral-950">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 md:grid-cols-4">
         <div className="md:col-span-2">
           <Logo />
           <p className="mt-3 max-w-sm text-sm text-neutral-500">
-            Opportunities beyond campus — quizzes, workshops, competitions and conferences curated for students.
+            A chat-first space where students message each other one-to-one and share thoughts with everyone.
           </p>
+          <ul className="mt-5 space-y-2 text-sm text-neutral-500">
+            {highlights.map((h) => (
+              <li key={h.label} className="flex items-center gap-2">
+                <h.icon className="size-4 text-brand" /> {h.label}
+              </li>
+            ))}
+          </ul>
         </div>
         <div>
-          <h3 className="mb-3 text-sm font-semibold">Explore</h3>
+          <h3 className="mb-3 text-sm font-semibold">Chat</h3>
           <ul className="space-y-2 text-sm text-neutral-500">
-            <li><Link className="hover:text-brand" to="/discover">Explore</Link></li>
+            <li><Link className="hover:text-brand" to="/messages">Messages</Link></li>
             <li><Link className="hover:text-brand" to="/feed">Thoughts</Link></li>
             <li><Link className="hover:text-brand" to="/about">About</Link></li>
             <li><Link className="hover:text-brand" to="/contact">Contact</Link></li>
           </ul>
         </div>
         <div>
-          <h3 className="mb-3 text-sm font-semibold">Get in touch</h3>
+          <h3 className="mb-3 text-sm font-semibold">Start chatting</h3>
           <div className="flex flex-col gap-2">
-            <a href={`mailto:${CONTACT_EMAIL}`} className="btn-outline justify-start" aria-label={`Email ${CONTACT_EMAIL}`}>
-              <Mail className="size-4" /> {CONTACT_EMAIL}
-            </a>
-            <button type="button" className="btn-primary justify-start" onClick={() => setChatOpen(true)}>
+            <Link to={user ? '/messages' : '/login'} className="btn-primary justify-start">
+              <Send className="size-4" /> {user ? 'Open Messages' : 'Log in to chat'}
+            </Link>
+            <button type="button" className="btn-outline justify-start" onClick={() => setChatOpen(true)}>
               <MessageCircle className="size-4" /> Chat with Admin
             </button>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="btn-ghost justify-start px-0" aria-label={`Email ${CONTACT_EMAIL}`}>
+              <Mail className="size-4" /> {CONTACT_EMAIL}
+            </a>
           </div>
         </div>
       </div>

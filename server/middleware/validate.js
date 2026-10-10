@@ -17,8 +17,6 @@ export const validate =
 
 // Accepts a Mongo ObjectId (24 hex) or a Sheet UUID (36 chars with dashes).
 export const objectId = z.string().trim().regex(/^([a-f\d]{24}|[a-f\d-]{36})$/i, 'Invalid id');
-// Program ids are Mongo ObjectIds when stored in MongoDB and UUIDs when stored in the Sheet.
-export const programId = z.string().trim().regex(/^[A-Za-z0-9-]{1,64}$/, 'Invalid id');
 export const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
 export const password = z.string().min(8, 'Password must be at least 8 characters').max(128);
 export const username = z

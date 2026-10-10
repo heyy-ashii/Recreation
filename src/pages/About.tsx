@@ -1,4 +1,4 @@
-import { BadgeCheck, Code2, Compass, LogOut, Mail, MessageCircle, Share2 } from 'lucide-react'
+import { Code2, LogOut, Mail, MessageCircle, MessageSquare, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import AuthPanel from '../components/AuthPanel'
 import { useAuth } from '../context/AuthContext'
@@ -9,9 +9,9 @@ import { CONTACT_EMAIL, CREATOR_NAME } from '../lib/utils'
 const credits = [{ name: CREATOR_NAME, role: 'Founder · Design & Full-stack Development', icon: Code2 }]
 
 const steps = [
-  { icon: Compass, title: 'Discover', text: 'We collect opportunity posters from colleges, institutions, and organizations.' },
-  { icon: BadgeCheck, title: 'Verify', text: 'Every submission is reviewed before being published on the platform.' },
-  { icon: Share2, title: 'Share', text: 'Students discover opportunities through a modern, visual-first experience.' },
+  { icon: MessageSquare, title: 'Share thoughts', text: 'Any signed-in student can post a thought to the public feed.' },
+  { icon: Users, title: 'Chat with anyone', text: 'Open Messages to find every student and start a conversation.' },
+  { icon: Timer, title: 'Stays fresh', text: 'Messages clear automatically after 30 days, so nothing piles up.' },
 ]
 
 export default function About() {
@@ -23,10 +23,10 @@ export default function About() {
     <div className="mx-auto max-w-6xl px-4 py-12">
       <section className="max-w-3xl">
         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-          About OGEA — <span className="text-brand">Beyond Campus.</span>
+          About OGEA — <span className="text-brand">Share & connect.</span>
         </h1>
         <p className="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
-          OGEA helps students discover hackathons, workshops, paper presentations, competitions, and conferences from institutions across Kerala through a single visual platform.
+          OGEA is a simple space for students to share thoughts and message each other, one-to-one.
         </p>
       </section>
 
@@ -64,12 +64,12 @@ export default function About() {
 
       <section className="mt-14 grid items-start gap-8 lg:grid-cols-2" id="account">
         <div>
-          <h2 className="text-2xl font-bold">Have an Opportunity to Share?</h2>
+          <h2 className="text-2xl font-bold">Need help or have feedback?</h2>
           <p className="mt-2 text-neutral-600 dark:text-neutral-400">
-            Send us the poster and details by email or chat with the admin, and we will review and publish it.
+            Send us an email or chat with the admin team and we will get back to you.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <a className="btn-outline" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Opportunity submission')}`}>
+            <a className="btn-outline" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('OGEA feedback')}`}>
               <Mail className="size-4" /> Email us
             </a>
             <button className="btn-primary" onClick={() => setChatOpen(true)}>

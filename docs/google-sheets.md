@@ -1,7 +1,7 @@
 # Using Google Sheets as the whole datastore
 
 OGEA can run with **no database at all**: when `SHEETS_API_URL` is set, users,
-OTPs, chats, messages and programs all live in a Google Sheet. Leave it unset
+OTPs, chats, messages and posts all live in a Google Sheet. Leave it unset
 and everything stays in MongoDB.
 
 ```
@@ -23,7 +23,7 @@ Node, so `$or`, `$regex` and date comparisons behave as before.
      node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
      ```
 4. Run `setup()` once (authorise when prompted). This creates the `Users`,
-   `Otps`, `Conversations`, `Messages` and `Programs` tabs.
+   `Otps`, `Conversations`, `Messages` and `Posts` tabs.
 
 ## 2. Keep the spreadsheet private
 
@@ -65,9 +65,8 @@ SHEETS_API_URL=... SHEETS_API_TOKEN=... \
 
 ## Migrating existing data
 
-Programs can be copied from MongoDB with `npm run sheets:sync` (see
-`server/scripts/sheets-sync.js`); it is safe to re-run. Users, chats and OTPs
-are not copied — recreate the admin with `seed:admin` and let users sign up.
+Users, chats and OTPs are not copied between datastores — recreate the admin
+with `seed:admin` and let users sign up again.
 
 ## Limits — read before choosing this
 

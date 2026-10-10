@@ -128,37 +128,6 @@ describe('admin users', () => {
   });
 });
 
-describe('programs', () => {
-  let id;
-  it('admin CRUD and public reads', async () => {
-    expect((await request(app).post('/api/v1/programs').send({ title: 'x', category: 'Quiz' })).status).toBe(401);
-    const { agent } = await login('admin', 'adminpass1');
-    const created = await agent
-      .post('/api/v1/programs')
-      .send({ title: 'Mega Quiz', category: 'Quiz', about: 'Long text', status: 'Live', deadline: '2030-01-01', imageurls: ['https://example.com/a.jpg'] });
-    expect(created.status).toBe(201);
-    id = created.body.data.program._id;
-
-    const list = await request(app).get('/api/v1/programs?category=Quiz&q=mega');
-    expect(list.body.total).toBe(1);
-    expect(list.body.data.programs[0].about).toBeUndefined();
-
-    const one = await request(app).get(`/api/v1/programs/${id}`);
-    expect(one.body.data.program.about).toBe('Long text');
-
-    expect((await request(app).get('/api/v1/programs/notanid')).status).toBe(400);
-    const missing = await request(app).get('/api/v1/programs/000000000000000000000000');
-    expect(missing.status).toBe(404);
-    expect(missing.body.message).not.toMatch(/Cast/);
-
-    const cats = await request(app).get('/api/v1/programs/categories');
-    expect(cats.body.data.categories[0]).toEqual({ name: 'Quiz', count: 1 });
-
-    expect((await agent.patch(`/api/v1/programs/${id}`).send({ status: 'Closed' })).body.data.program.status).toBe('Closed');
-    expect((await agent.delete(`/api/v1/programs/${id}`)).status).toBe(204);
-  });
-});
-
 describe('chat', () => {
   it('user messages admin and admin replies', async () => {
     expect((await request(app).get('/api/v1/chat/me')).status).toBe(401);

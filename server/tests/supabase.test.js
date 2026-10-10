@@ -17,7 +17,7 @@ let app;
 let db;
 let closePool;
 
-const TABLES = ['app_peer_messages', 'app_peer_conversations', 'app_messages', 'app_conversations', 'app_otps', 'app_programs', 'app_posts', 'app_users'];
+const TABLES = ['app_peer_messages', 'app_peer_conversations', 'app_messages', 'app_conversations', 'app_otps', 'app_posts', 'app_users'];
 
 beforeAll(async () => {
   if (!DB_URL) return;
@@ -40,7 +40,6 @@ describeIfDb('OGEA on Supabase (Postgres)', () => {
   it('reports the supabase datastore', async () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.body.datastore).toBe('supabase');
-    expect(res.body.programs).toBe('supabase');
   });
 
   it('creates an account from the roster, logs in and reads /me', async () => {
@@ -107,43 +106,6 @@ describeIfDb('OGEA on Supabase (Postgres)', () => {
 
     expect((await agent.delete(`/api/v1/admin/users/${id}`)).status).toBe(204);
     expect((await agent.get(`/api/v1/admin/users?q=made`)).body.data.users).toHaveLength(0);
-  });
-
-  it('runs programs CRUD', async () => {
-    const agent = request.agent(app);
-    await agent.post('/api/v1/auth/login').send({ identifier: 'admin', password: 'adminpass1' });
-
-    const created = await agent
-      .post('/api/v1/programs')
-      .send({ title: 'Postgres Quiz', category: 'Quiz', about: 'From Postgres', status: 'Live', deadline: '2030-01-01', tags: ['math'], imageurls: ['https://example.com/a.jpg'] });
-    expect(created.status).toBe(201);
-    const id = created.body.data.program._id;
-
-    const one = await request(app).get(`/api/v1/programs/${id}`);
-    expect(one.body.data.program.about).toBe('From Postgres');
-    expect(one.body.data.program.deadline).toBeTruthy();
-    expect(one.body.data.program.tags).toEqual(['math']);
-
-    const search = await request(app).get('/api/v1/programs?q=postgres');
-    expect(search.body.data.programs.map((p) => p._id)).toContain(id);
-
-    const cats = await request(app).get('/api/v1/programs/categories');
-    expect(cats.body.data.categories).toEqual([{ name: 'Quiz', count: 1 }]);
-
-    const stats = await agent.get('/api/v1/admin/stats');
-    expect(stats.body.data.programs).toBe(1);
-    expect(stats.body.data.livePrograms).toBe(1);
-
-    const updated = await agent.patch(`/api/v1/programs/${id}`).send({ status: 'Closed' });
-    expect(updated.body.data.program.status).toBe('Closed');
-
-    expect((await agent.delete(`/api/v1/programs/${id}`)).status).toBe(204);
-    expect((await request(app).get(`/api/v1/programs/${id}`)).status).toBe(404);
-  });
-
-  it('rejects an unknown program id without a 500', async () => {
-    const res = await request(app).get('/api/v1/programs/not-a-uuid');
-    expect(res.status).toBe(400);
   });
 
   it('runs the chat flow', async () => {

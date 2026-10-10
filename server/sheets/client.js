@@ -54,24 +54,10 @@ async function request(action, params = {}, data) {
 
   if (payload.error) {
     if (payload.error === 'Unauthorized') throw new AppError('The Google Sheet rejected our credentials.', 502);
-    if (payload.error === 'Program not found') throw new AppError('Program not found', 404);
     throw new AppError(payload.error, 400);
   }
   return payload;
 }
-
-// Named actions used by the programs store.
-export const sheetsClient = {
-  health: () => request('health'),
-  list: (params) => request('GET', params),
-  get: (id) => request('get', { id }),
-  categories: () => request('categories'),
-  count: () => request('count').then((r) => r.total),
-  countLive: () => request('countLive').then((r) => r.total),
-  create: (data) => request('create', {}, { data }),
-  update: (id, data) => request('update', { id }, { data }),
-  remove: (id) => request('delete', { id }),
-};
 
 // Generic collection calls used by the auth/chat models.
 export const sheetCollection = {

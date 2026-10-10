@@ -12,34 +12,6 @@ export interface User {
   createdAt: string
 }
 
-export type ProgramStatus = 'Live' | 'Recent' | 'Closed'
-
-export interface Program {
-  _id: string
-  title: string
-  organizer?: string
-  type?: string
-  category: string
-  venue?: string
-  about?: string
-  registrationLink?: string
-  contact?: string
-  imageurls: string[]
-  tags: string[]
-  status: ProgramStatus
-  deadline?: string
-  eventDate?: string
-  createdAt: string
-}
-
-export interface ProgramList {
-  results: number
-  total: number
-  page: number
-  pages: number
-  data: { programs: Program[] }
-}
-
 export interface ChatMessage {
   _id: string
   body: string

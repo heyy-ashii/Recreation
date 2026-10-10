@@ -67,36 +67,14 @@ create table if not exists app_messages (
   updated_at      timestamptz not null default now()
 );
 
-create table if not exists app_programs (
-  id                uuid primary key default gen_random_uuid(),
-  title             text not null,
-  organizer         text not null default '',
-  type              text not null default '',
-  category          text not null,
-  venue             text not null default '',
-  about             text not null default '',
-  registration_link text not null default '',
-  contact           text not null default '',
-  imageurls         text[] not null default '{}',
-  tags              text[] not null default '{}',
-  status            text not null default 'Live' check (status in ('Live', 'Recent', 'Closed')),
-  deadline          timestamptz,
-  event_date        timestamptz,
-  created_by        uuid references app_users (id) on delete set null,
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
-
 create index if not exists app_conversations_last_message_at_idx on app_conversations (last_message_at desc);
 create index if not exists app_messages_conversation_created_idx on app_messages (conversation_id, created_at);
-create index if not exists app_programs_created_at_idx on app_programs (created_at desc);
-create index if not exists app_programs_category_status_idx on app_programs (category, status);
 create index if not exists app_otps_expires_at_idx on app_otps (expires_at);
 
 do $$
 declare t text;
 begin
-  foreach t in array array['app_users', 'app_otps', 'app_conversations', 'app_messages', 'app_programs']
+  foreach t in array array['app_users', 'app_otps', 'app_conversations', 'app_messages']
   loop
     execute format('drop trigger if exists %I_touch on %I', t, t);
     execute format(
@@ -114,15 +92,3 @@ alter table app_users         enable row level security;
 alter table app_otps          enable row level security;
 alter table app_conversations enable row level security;
 alter table app_messages      enable row level security;
-alter table app_programs      enable row level security;
-
--- Programs are the only public-read table; the site lists them without a login.
--- `anon` only exists on Supabase, so skip this on a plain Postgres instance.
-do $$
-begin
-  if exists (select 1 from pg_roles where rolname = 'anon') then
-    drop policy if exists app_programs_public_read on app_programs;
-    create policy app_programs_public_read on app_programs
-      for select to anon, authenticated using (true);
-  end if;
-end $$;

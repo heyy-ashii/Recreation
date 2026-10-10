@@ -35,12 +35,6 @@ export const config = {
     pass: env.SMTP_PASS || '',
     from: env.MAIL_FROM || env.SMTP_USER || 'OGEA <ogea.sms@gmail.com>',
   },
-  cloudinary: {
-    cloudName: env.CLOUDINARY_CLOUD_NAME || '',
-    apiKey: env.CLOUDINARY_API_KEY || '',
-    apiSecret: env.CLOUDINARY_API_SECRET || '',
-    folder: env.CLOUDINARY_FOLDER || 'ogea-api',
-  },
   sheets: {
     apiUrl: env.SHEETS_API_URL || '',
     apiToken: env.SHEETS_API_TOKEN || '',
@@ -86,8 +80,6 @@ export const config = {
 };
 
 export const emailConfigured = () => Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
-export const cloudinaryConfigured = () =>
-  Boolean(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
 export const sheetsConfigured = () => Boolean(config.sheets.apiUrl && config.sheets.apiToken);
 
 // The Supabase driver talks to Postgres, so SUPABASE_DB_URL is what enables it.
