@@ -20,8 +20,8 @@ export default function Footer() {
         <div>
           <h3 className="mb-3 text-sm font-semibold">Explore</h3>
           <ul className="space-y-2 text-sm text-neutral-500">
-            <li><Link className="hover:text-brand" to="/discover">Discover</Link></li>
-            <li><Link className="hover:text-brand" to="/search">Search</Link></li>
+            <li><Link className="hover:text-brand" to="/discover">Explore</Link></li>
+            <li><Link className="hover:text-brand" to="/feed">Thoughts</Link></li>
             <li><Link className="hover:text-brand" to="/about">About</Link></li>
             <li><Link className="hover:text-brand" to="/contact">Contact</Link></li>
           </ul>

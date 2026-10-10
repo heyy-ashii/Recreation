@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RequireAdmin, RequireAuth } from './components/Guards'
 import PublicLayout from './components/PublicLayout'
 import { PageSpinner } from './components/ui'
@@ -11,7 +11,6 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import ProgramDetail from './pages/ProgramDetail'
-import Search from './pages/Search'
 
 const Account = lazy(() => import('./pages/Account'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
@@ -19,6 +18,11 @@ const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminUsers = lazy(() => import('./pages/admin/Users'))
 const AdminPrograms = lazy(() => import('./pages/admin/Programs'))
 const AdminChats = lazy(() => import('./pages/admin/Chats'))
+
+function SearchRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/discover${search}`} replace />
+}
 
 export default function App() {
   return (
@@ -28,7 +32,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="feed" element={<Feed />} />
           <Route path="discover" element={<Discover />} />
-          <Route path="search" element={<Search />} />
+          <Route path="search" element={<SearchRedirect />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
           <Route path="programs/:id" element={<ProgramDetail />} />

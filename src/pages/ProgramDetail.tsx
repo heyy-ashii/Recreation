@@ -36,7 +36,7 @@ export default function ProgramDetail() {
     return (
       <div className="px-4 py-16">
         <ErrorState message={error?.message ?? 'Program not found'} onRetry={() => refetch()} />
-        <div className="mt-4 text-center"><Link to="/discover" className="btn-ghost">Back to Discover</Link></div>
+        <div className="mt-4 text-center"><Link to="/discover" className="btn-ghost">Back to Explore</Link></div>
       </div>
     )
 
@@ -109,7 +109,7 @@ export default function ProgramDetail() {
           {program.tags.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-2">
               {program.tags.map((t) => (
-                <Link key={t} to={`/search?q=${encodeURIComponent(t)}`} className="rounded-full border border-neutral-200 px-3 py-1 text-xs hover:border-brand dark:border-neutral-800">#{t}</Link>
+                <Link key={t} to={`/discover?q=${encodeURIComponent(t)}`} className="rounded-full border border-neutral-200 px-3 py-1 text-xs hover:border-brand dark:border-neutral-800">#{t}</Link>
               ))}
             </div>
           )}
