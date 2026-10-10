@@ -1,20 +1,18 @@
-import { ArrowRight, BadgeCheck, Compass, MessageSquare, Share2, Sparkles } from 'lucide-react'
+import { ArrowRight, MessageCircle, MessageSquare, Sparkles, Timer, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ProgramGrid, ProgramGridSkeleton } from '../components/ProgramCard'
-import { EmptyState, ErrorState } from '../components/ui'
-import { usePrograms, usePosts } from '../lib/queries'
+import { EmptyState } from '../components/ui'
+import { usePosts } from '../lib/queries'
 import { usePageMeta } from '../lib/usePageMeta'
 import { formatShort } from '../lib/utils'
 
 const steps = [
-  { icon: Compass, title: 'Discover', text: 'We collect opportunity posters from colleges, institutions, and organizations.' },
-  { icon: BadgeCheck, title: 'Verify', text: 'Every submission is reviewed before being published on the platform.' },
-  { icon: Share2, title: 'Share', text: 'Students discover opportunities through a modern, visual-first experience.' },
+  { icon: MessageSquare, title: 'Share thoughts', text: 'Any signed-in student can post a thought to the public feed.' },
+  { icon: Users, title: 'Chat with anyone', text: 'Open Messages to find every student and start a conversation.' },
+  { icon: Timer, title: 'Stays fresh', text: 'Messages clear automatically after 30 days, so nothing piles up.' },
 ]
 
 export default function Home() {
   usePageMeta()
-  const { data, isLoading, error, refetch } = usePrograms({ limit: 8 })
   const { data: thoughts } = usePosts({ limit: 3 })
   const posts = thoughts?.data.posts ?? []
 
@@ -22,20 +20,20 @@ export default function Home() {
     <>
       <section className="mx-auto max-w-4xl px-4 pb-16 pt-16 text-center sm:pt-24">
         <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-sm font-medium shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <Sparkles className="size-4 text-brand" /> Curated for students
+          <Sparkles className="size-4 text-brand" /> Chat & thoughts for students
         </span>
         <h1 className="mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl">
-          Explore Opportunities <span className="text-brand">Beyond Campus.</span>
+          Share your thoughts. <span className="text-brand">Message anyone.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-lg text-neutral-600 dark:text-neutral-400">
-          Discover quizzes, workshops, paper presentations, hackathons, conferences, and competitions curated by OGEA.
+          OGEA is a simple space for students to post thoughts and talk to each other, one-to-one.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link to="/feed" className="btn-primary px-6 py-3">
             Share a Thought <MessageSquare className="size-4" />
           </Link>
-          <Link to="/discover" className="btn-outline px-6 py-3">
-            Explore Opportunities <ArrowRight className="size-4" />
+          <Link to="/messages" className="btn-outline px-6 py-3">
+            Open Messages <MessageCircle className="size-4" />
           </Link>
         </div>
       </section>
@@ -69,27 +67,6 @@ export default function Home() {
           </div>
         ) : (
           <EmptyState title="No thoughts yet">Be the first to share something on the Thoughts page.</EmptyState>
-        )}
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold">Recent Opportunities</h2>
-            <p className="text-sm text-neutral-500">Latest additions to the platform</p>
-          </div>
-          <Link to="/discover" className="btn-ghost shrink-0">
-            View all <ArrowRight className="size-4" />
-          </Link>
-        </div>
-        {isLoading ? (
-          <ProgramGridSkeleton count={4} />
-        ) : error ? (
-          <ErrorState message={error.message} onRetry={() => refetch()} />
-        ) : data?.data.programs.length ? (
-          <ProgramGrid programs={data.data.programs} />
-        ) : (
-          <EmptyState title="No opportunities yet">Check back soon — new opportunities are added regularly.</EmptyState>
         )}
       </section>
 

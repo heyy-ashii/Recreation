@@ -5,7 +5,6 @@ import { email, name, objectId, password, username, validate } from '../middlewa
 import { Conversation, Message } from '../models/Chat.js';
 import { User } from '../models/User.js';
 import { publicUser } from '../sheets/models.js';
-import { getProgramsStore } from '../sheets/programsStore.js';
 import { AppError, asyncHandler } from '../utils/AppError.js';
 
 const router = Router();
@@ -16,19 +15,16 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 router.get(
   '/stats',
   asyncHandler(async (_req, res) => {
-    const programs = getProgramsStore();
-    const [users, admins, disabled, totalPrograms, livePrograms, openChats, unread] = await Promise.all([
+    const [users, admins, disabled, openChats, unread] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'admin' }),
       User.countDocuments({ status: 'disabled' }),
-      programs.count(),
-      programs.countLive(),
       Conversation.countDocuments({ status: 'open' }),
       Conversation.aggregate([{ $group: { _id: null, total: { $sum: '$unreadForAdmin' } } }]),
     ]);
     res.json({
       status: 'success',
-      data: { users, admins, disabled, programs: totalPrograms, livePrograms, openChats, unreadMessages: unread[0]?.total ?? 0 },
+      data: { users, admins, disabled, openChats, unreadMessages: unread[0]?.total ?? 0 },
     });
   }),
 );

@@ -14,14 +14,14 @@ export default function Footer() {
         <div className="md:col-span-2">
           <Logo />
           <p className="mt-3 max-w-sm text-sm text-neutral-500">
-            Opportunities beyond campus — quizzes, workshops, competitions and conferences curated for students.
+            A simple space for students to share thoughts and message each other.
           </p>
         </div>
         <div>
           <h3 className="mb-3 text-sm font-semibold">Explore</h3>
           <ul className="space-y-2 text-sm text-neutral-500">
-            <li><Link className="hover:text-brand" to="/discover">Explore</Link></li>
             <li><Link className="hover:text-brand" to="/feed">Thoughts</Link></li>
+            <li><Link className="hover:text-brand" to="/messages">Messages</Link></li>
             <li><Link className="hover:text-brand" to="/about">About</Link></li>
             <li><Link className="hover:text-brand" to="/contact">Contact</Link></li>
           </ul>

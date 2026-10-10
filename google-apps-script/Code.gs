@@ -1,7 +1,7 @@
 /**
  * OGEA - Google Sheets datastore.
  *
- * Serves the whole app (users, otps, conversations, messages, programs) over a
+ * Serves the whole app (users, otps, conversations, messages, posts) over a
  * JSON API. The Express API talks to this script, so the frontend contract is
  * unchanged. MongoDB is not required.
  *
@@ -26,15 +26,13 @@ var COLLECTIONS = {
   Otps: ['id', 'email', 'purpose', 'codeHash', 'attempts', 'expiresAt', 'createdAt', 'updatedAt'],
   Conversations: ['id', 'user', 'status', 'lastMessage', 'lastMessageAt', 'unreadForAdmin', 'unreadForUser', 'createdAt', 'updatedAt'],
   Messages: ['id', 'conversation', 'sender', 'senderRole', 'body', 'createdAt', 'updatedAt'],
-  Programs: ['id', 'title', 'organizer', 'type', 'category', 'venue', 'about', 'registrationLink', 'contact', 'imageurls', 'tags', 'status', 'deadline', 'eventDate', 'createdBy', 'createdAt', 'updatedAt'],
   Posts: ['id', 'author', 'body', 'likes', 'hidden', 'createdAt', 'updatedAt'],
 };
 
 // Values that must stay JSON, not strings.
-var JSON_COLUMNS = { imageurls: true, tags: true, likes: true };
+var JSON_COLUMNS = { likes: true };
 // Values that must be stored as booleans.
 var BOOLEAN_COLUMNS = { emailVerified: true, hidden: true };
-var PROGRAM_STATUSES = ['Live', 'Recent', 'Closed'];
 
 /* ------------------------------------------------------------------ */
 /* One-time setup                                                      */
@@ -80,15 +78,6 @@ function handle_(e, action, body) {
 
   try {
     switch (action) {
-      // --- programs: named actions, kept for the existing client ---
-      case 'GET': return json_(listPrograms_(params));
-      case 'get': return json_(getProgram_(params.id));
-      case 'create': return json_(createProgram_(body.data));
-      case 'update': return json_(updateProgram_(params.id || body.id, body.data));
-      case 'delete': return json_({ deleted: deleteProgram_(params.id || body.id) });
-      case 'count': return json_({ total: readRows_('Programs').length });
-      case 'countLive': return json_({ total: readRows_('Programs').filter(function (r) { return r.status === 'Live'; }).length });
-      case 'categories': return json_(categoryCounts_());
       // --- generic collection actions ---
       case 'find': return json_({ rows: find_(body) });
       case 'findOne': return json_({ row: findOne_(body) });
@@ -369,100 +358,6 @@ function asComparable_(v) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Programs (named actions)                                            */
-/* ------------------------------------------------------------------ */
-
-function listPrograms_(params) {
-  var rows = readRows_('Programs');
-
-  if (params.category && params.category !== 'All') rows = rows.filter(function (r) { return r.category === params.category; });
-  if (params.status) rows = rows.filter(function (r) { return r.status === params.status; });
-  if (params.q) {
-    var needle = String(params.q).toLowerCase();
-    rows = rows.filter(function (r) {
-      var hit = ['title', 'organizer', 'category', 'type', 'venue', 'about'].some(function (key) {
-        return String(r[key] || '').toLowerCase().indexOf(needle) !== -1;
-      });
-      return hit || (r.tags || []).some(function (t) { return String(t).toLowerCase().indexOf(needle) !== -1; });
-    });
-  }
-
-  var sort = params.sort || 'newest';
-  rows.sort(function (a, b) {
-    if (sort === 'deadline') {
-      var da = a.deadline ? new Date(a.deadline).getTime() : Infinity;
-      var db = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-      if (da !== db) return da - db;
-    }
-    var ca = new Date(a.createdAt || 0).getTime();
-    var cb = new Date(b.createdAt || 0).getTime();
-    return sort === 'oldest' ? ca - cb : cb - ca;
-  });
-
-  var total = rows.length;
-  var limit = Math.max(1, Math.min(100, Number(params.limit) || 50));
-  var page = Math.max(1, Number(params.page) || 1);
-  var slice = rows.slice((page - 1) * limit, (page - 1) * limit + limit);
-  if (params.view === 'summary') slice = slice.map(summary_);
-  return { results: slice.length, total: total, page: page, pages: Math.ceil(total / limit), programs: slice };
-}
-
-function getProgram_(id) {
-  var found = readRows_('Programs').filter(function (r) { return r.id === id; })[0];
-  if (!found) throw new Error('Program not found');
-  return { program: found };
-}
-
-function createProgram_(data) {
-  validateProgram_(data, false);
-  var now = new Date().toISOString();
-  var row = normalize_('Programs', data);
-  row.id = (data && data.id) || Utilities.getUuid();
-  row.createdAt = now;
-  row.updatedAt = now;
-
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    sheetFor_('Programs').appendRow(columns_('Programs').map(function (col) { return serialize_(col, row[col]); }));
-  } finally {
-    lock.releaseLock();
-  }
-  return { program: row };
-}
-
-function updateProgram_(id, data) {
-  if (!id) throw new Error('id is required');
-  validateProgram_(data, true);
-  return { program: updateById_({ collection: 'Programs', id: id, update: data }) };
-}
-
-function deleteProgram_(id) {
-  if (!id) throw new Error('id is required');
-  return deleteById_({ collection: 'Programs', id: id });
-}
-
-function categoryCounts_() {
-  var counts = {};
-  readRows_('Programs').forEach(function (r) {
-    if (!r.category) return;
-    counts[r.category] = (counts[r.category] || 0) + 1;
-  });
-  return { categories: Object.keys(counts).map(function (name) { return { name: name, count: counts[name] }; }) };
-}
-
-function validateProgram_(data, partial) {
-  data = data || {};
-  if (!partial) {
-    if (!data.title || !String(data.title).trim()) throw new Error('title is required');
-    if (!data.category || !String(data.category).trim()) throw new Error('category is required');
-  }
-  if (data.status && PROGRAM_STATUSES.indexOf(data.status) === -1) {
-    throw new Error('status must be one of ' + PROGRAM_STATUSES.join(', '));
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /* Sheet <-> object helpers                                            */
 /* ------------------------------------------------------------------ */
 
@@ -531,23 +426,6 @@ function deserialize_(col, value) {
   if (value instanceof Date) return value.toISOString();
   if (value === '' || value === null) return '';
   return value;
-}
-
-function summary_(program) {
-  return {
-    _id: program.id,
-    title: program.title,
-    organizer: program.organizer,
-    type: program.type,
-    category: program.category,
-    venue: program.venue,
-    imageurls: program.imageurls || [],
-    tags: program.tags || [],
-    status: program.status || 'Live',
-    deadline: program.deadline || undefined,
-    eventDate: program.eventDate || undefined,
-    createdAt: program.createdAt,
-  };
 }
 
 /* ------------------------------------------------------------------ */

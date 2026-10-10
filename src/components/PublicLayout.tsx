@@ -4,9 +4,12 @@ import ChatWidget from './ChatWidget'
 import Footer from './Footer'
 import Navbar from './Navbar'
 import { Toaster } from './ui'
+import { cn } from '../lib/utils'
 
 export default function PublicLayout() {
   const { pathname } = useLocation()
+  // Messages is a full-screen workspace: no footer or floating chat button.
+  const fullScreen = pathname.startsWith('/messages')
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
@@ -16,11 +19,11 @@ export default function PublicLayout() {
         Skip to content
       </a>
       <Navbar />
-      <main id="main" className="flex-1">
+      <main id="main" className={cn(fullScreen ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1')}>
         <Outlet />
       </main>
-      <Footer />
-      <ChatWidget />
+      {!fullScreen && <Footer />}
+      {!fullScreen && <ChatWidget />}
       <Toaster />
     </div>
   )

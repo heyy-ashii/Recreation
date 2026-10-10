@@ -1,4 +1,4 @@
-import { Compass, Home, Info, LayoutDashboard, LogIn, MessageCircle, MessageSquare, Moon, Sun, User as UserIcon, type LucideIcon } from 'lucide-react'
+import { Home, Info, LayoutDashboard, LogIn, MessageCircle, MessageSquare, Moon, Sun, User as UserIcon, type LucideIcon } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
@@ -10,7 +10,6 @@ type NavItem = { key: string; label: string; icon: LucideIcon; to?: string }
 const links: NavItem[] = [
   { key: 'home', to: '/', label: 'Home', icon: Home },
   { key: 'feed', to: '/feed', label: 'Thoughts', icon: MessageSquare },
-  { key: 'discover', to: '/discover', label: 'Explore', icon: Compass },
   { key: 'messages', to: '/messages', label: 'Messages', icon: MessageCircle },
   { key: 'about', to: '/about', label: 'About', icon: Info },
 ]

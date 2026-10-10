@@ -21,12 +21,11 @@ function startFakeSheet() {
     Otps: [],
     Conversations: [],
     Messages: [],
-    Programs: [],
     Posts: [],
     PeerConversations: [],
     PeerMessages: [],
   };
-  const JSON_COLUMNS = { imageurls: true, tags: true, likes: true };
+  const JSON_COLUMNS = { likes: true };
   const BOOLEAN_COLUMNS = { emailVerified: true, hidden: true };
 
   const eq = (a, b) => {
@@ -179,48 +178,6 @@ function startFakeSheet() {
             tabs[data.collection] = [];
             return send({ deleted: n });
           }
-          // programs named actions
-          case 'GET': {
-            let list = rowsOf('Programs').map(rowToObject);
-            if (q.get('category') && q.get('category') !== 'All') list = list.filter((r) => r.category === q.get('category'));
-            if (q.get('q')) list = list.filter((r) => String(r.title).toLowerCase().includes(q.get('q').toLowerCase()));
-            list.sort((a, b) => (q.get('sort') === 'oldest' ? String(a.createdAt).localeCompare(String(b.createdAt)) : String(b.createdAt).localeCompare(String(a.createdAt))));
-            const total = list.length;
-            const limit = Number(q.get('limit')) || 50;
-            const page = Number(q.get('page')) || 1;
-            const slice = list.slice((page - 1) * limit, (page - 1) * limit + limit);
-            return send({ results: slice.length, total, page, pages: Math.ceil(total / limit), programs: slice });
-          }
-          case 'get': {
-            const found = rowsOf('Programs').map(rowToObject).find((r) => r.id === q.get('id'));
-            return send(found ? { program: found } : { error: 'Program not found' });
-          }
-          case 'create': {
-            const row = { ...data.data, id: data.data.id || crypto.randomUUID(), createdAt: now(), updatedAt: now() };
-            for (const col of Object.keys(JSON_COLUMNS)) if (Array.isArray(row[col])) row[col] = JSON.stringify(row[col]);
-            rowsOf('Programs').push(row);
-            return send({ program: rowToObject(row) });
-          }
-          case 'update': {
-            const row = rowsOf('Programs').find((r) => r.id === q.get('id'));
-            if (row) Object.assign(row, data.data, { updatedAt: now() });
-            return send({ program: rowToObject(row) });
-          }
-          case 'delete': {
-            const idx = rowsOf('Programs').findIndex((r) => r.id === q.get('id'));
-            if (idx === -1) return send({ deleted: false });
-            rowsOf('Programs').splice(idx, 1);
-            return send({ deleted: true });
-          }
-          case 'categories': {
-            const counts = {};
-            rowsOf('Programs').map(rowToObject).forEach((r) => (counts[r.category] = (counts[r.category] || 0) + 1));
-            return send({ categories: Object.keys(counts).map((name) => ({ name, count: counts[name] })) });
-          }
-          case 'count':
-            return send({ total: rowsOf('Programs').length });
-          case 'countLive':
-            return send({ total: rowsOf('Programs').map(rowToObject).filter((r) => r.status === 'Live').length });
           default:
             return send({ error: 'Unknown action: ' + action });
         }
@@ -260,7 +217,6 @@ describe('OGEA on Google Sheets only', () => {
   it('reports the sheets datastore', async () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.body.datastore).toBe('sheets');
-    expect(res.body.programs).toBe('sheets');
   });
 
   it('creates an account from the roster, logs in and reads /me', async () => {
@@ -311,29 +267,6 @@ describe('OGEA on Google Sheets only', () => {
     expect(login.status).toBe(403);
 
     expect((await agent.delete(`/api/v1/admin/users/${id}`)).status).toBe(204);
-  });
-
-  it('runs programs CRUD through the sheet', async () => {
-    const { agent } = await adminLogin();
-    const created = await agent
-      .post('/api/v1/programs')
-      .send({ title: 'Sheet Quiz', category: 'Quiz', about: 'From the sheet', status: 'Live', deadline: '2030-01-01', tags: ['math'], imageurls: ['https://example.com/a.jpg'] });
-    expect(created.status).toBe(201);
-    const id = created.body.data.program._id;
-
-    const one = await request(app).get(`/api/v1/programs/${id}`);
-    expect(one.body.data.program.about).toBe('From the sheet');
-    expect(one.body.data.program.deadline).toBeTruthy();
-
-    const cats = await request(app).get('/api/v1/programs/categories');
-    expect(cats.body.data.categories).toEqual([{ name: 'Quiz', count: 1 }]);
-
-    const stats = await agent.get('/api/v1/admin/stats');
-    expect(stats.body.data.programs).toBe(1);
-    expect(stats.body.data.livePrograms).toBe(1);
-
-    expect((await agent.delete(`/api/v1/programs/${id}`)).status).toBe(204);
-    expect((await request(app).get(`/api/v1/programs/${id}`)).status).toBe(404);
   });
 
   it('runs the chat flow', async () => {
@@ -402,12 +335,15 @@ describe('OGEA on Google Sheets only', () => {
   });
 
   it('maps an unreachable sheet to 503, not a 500', async () => {
-    const { sheetsClient } = await import('../sheets/client.js');
+    const { sheetCollection } = await import('../sheets/client.js');
     const { config } = await import('../config.js');
     const original = config.sheets.apiUrl;
     config.sheets.apiUrl = 'http://127.0.0.1:1/exec';
-    await expect(sheetsClient.list({})).rejects.toMatchObject({ statusCode: 503 });
-    config.sheets.apiUrl = original;
+    try {
+      await expect(sheetCollection.find('Users', {})).rejects.toMatchObject({ statusCode: 503 });
+    } finally {
+      config.sheets.apiUrl = original;
+    }
   });
 
   it('runs the student-to-student chat flow through the sheet', async () => {

@@ -1,6 +1,6 @@
-# OGEA — Opportunities Beyond Campus
+# OGEA — Share & Message
 
-Student-opportunities platform (quizzes, workshops, writing competitions, seminars, conferences, Kitab, Hadith …) with a public site, an admin dashboard, email-OTP sign-up and a built-in **Chat with Admin**.
+A chat and thought-sharing platform for students: a public **Thoughts** feed, one-to-one **Messages** between students, a built-in **Chat with Admin**, and an admin dashboard. Sign-up is by name + admission number on the student roster.
 
 Created by **Ashique.Pilassery**.
 
@@ -9,15 +9,17 @@ One Vercel project serves both parts:
 | Part | Tech | Path |
 | --- | --- | --- |
 | Frontend | Vite · React 19 · TypeScript · Tailwind CSS v4 · TanStack Query · React Router | `src/` → built to `dist/` |
-| API | Express 5 · Mongoose (MongoDB) · JWT in HttpOnly cookie · Zod · Helmet · rate limiting · Nodemailer · Cloudinary | `server/`, exposed by `api/index.js` at `/api/v1/*` |
+| API | Express 5 · Mongoose (MongoDB) · JWT in HttpOnly cookie · Zod · Helmet · rate limiting · Nodemailer | `server/`, exposed by `api/index.js` at `/api/v1/*` |
 
 Because the site and the API share one domain, there is no cross-site cookie/CORS setup to get wrong.
 
 ## Routes
 
-**Public:** `/` · `/discover` · `/search` · `/about` (credits + login / Create Account) · `/contact` · `/programs/:id` · `/login` · `/signup` · `/account` (signed-in users)
+**Public:** `/` · `/feed` (Thoughts) · `/messages` (one-to-one chat, signed-in) · `/about` · `/contact` · `/login` · `/signup` · `/account` (signed-in users)
 
-**Admin (role `admin` only):** `/admin` (stats) · `/admin/users` (user table) · `/admin/programs` (program CRUD + image upload) · `/admin/chats` (chat inbox)
+Legacy `/discover`, `/programs/:id` and `/search` redirect to `/feed`.
+
+**Admin (role `admin` only):** `/admin` (stats) · `/admin/users` (user table) · `/admin/chats` (chat inbox)
 
 **API (`/api/v1`):**
 
@@ -25,19 +27,21 @@ Because the site and the API share one domain, there is no cross-site cookie/COR
 | --- | --- |
 | Health | `GET /health` |
 | Auth | `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/password/request-otp`, `POST /auth/password/reset`, `GET /auth/me`, `PATCH /auth/update-me`, `PATCH /auth/update-password` |
-| Programs | `GET /programs` (`q`, `category`, `status`, `sort`, `page`, `limit`), `GET /programs/categories`, `GET /programs/:id`, admin: `POST /programs`, `PATCH /programs/:id`, `DELETE /programs/:id` |
+| Posts | `GET /posts`, signed-in: `POST /posts`, `PATCH /posts/:id`, `DELETE /posts/:id`, `POST /posts/:id/like` |
+| Messages | signed-in: `GET /messages`, `GET /messages/directory`, `POST /messages/start`, `GET /messages/:id`, `POST /messages/:id`, `GET /messages/unread` |
 | Admin | `GET /admin/stats`, `GET/POST /admin/users`, `PATCH/DELETE /admin/users/:id` |
 | Chat | user: `GET /chat/me`, `GET /chat/me/unread`, `POST /chat/me/messages`; admin: `GET /chat/conversations`, `GET/POST /chat/conversations/:id/messages`, `PATCH /chat/conversations/:id` |
-| Upload | admin: `POST /upload` (multipart `images`, Cloudinary) |
 
 ## Features
 
+- **Thoughts:** any signed-in account can post text thoughts to the public feed, edit or delete their own, and like others' posts.
+- **Messages:** signed-in students see **all other students** in the Messages sidebar (not just existing conversations) and start a one-to-one chat from there. The page is full-screen. Messages refresh by polling.
+- **30-day retention:** messages older than `CHAT_RETENTION_DAYS` (30 by default) are deleted when a thread is read and by the daily cleanup cron.
 - **Footer:** `ogea.sms@gmail.com` opens the mail app (`mailto:`); **Chat with Admin** opens the chat panel.
-- **Chat with Admin:** signed-in users message the admins from any page; admins reply from `/admin/chats` and can mark conversations resolved. Messages are stored in MongoDB and refreshed by polling every 5 s (Vercel functions can't hold WebSocket connections).
+- **Chat with Admin:** signed-in users message the admins from any page; admins reply from `/admin/chats` and can mark conversations resolved.
 - **Create Account:** on `/about`, `/login` or `/signup`. The student enters the name and admission number on the student list; a matching entry creates an account whose username is built from the name and whose initial password is the admission number. There is no email step.
 - **Forgot password:** reset by emailed code.
 - **Admin user table:** search, filter by role or status, add, edit, change role, enable or disable, reset password, delete. Passwords are bcrypt-hashed, so **nobody, admins included, can view an existing password**. An admin can only set a new one. Admins can't demote, disable or delete themselves.
-- **Programs:** create, edit and delete; upload images to Cloudinary or paste image URLs; set status, deadline, event date and tags. On detail pages, phone numbers, emails and links are clickable, and there are Apply and Share buttons.
 
 ## Security
 
@@ -77,13 +81,11 @@ npm run build        # type-check + production build
 npm run lint         # oxlint
 npm test             # API integration tests (in-memory MongoDB)
 npm run seed:admin   # create/update an admin (see below)
-npm run import:programs  # copy programs from the old API (see below)
 ```
 
 ## Deploying to Vercel
 
 1. **MongoDB Atlas.** Create a cluster (the free M0 tier works) and a database user. Under *Network Access*, allow `0.0.0.0/0`, since Vercel uses dynamic IPs. Copy the connection string, e.g. `mongodb+srv://user:pass@cluster0.xxxx.mongodb.net/ogea`.
-   - To keep your existing 19 programs, point `MONGODB_URI` at the **same database** the old API uses. The schema is compatible. Or run the import script (step 6).
 2. **Gmail App Password** (for email codes). Turn on 2-Step Verification for `ogea.sms@gmail.com`, then create an App Password at https://myaccount.google.com/apppasswords.
 3. **Import the repo.** In Vercel, click *Add New → Project* and pick this repo. Vercel detects **Vite** from `vercel.json`; leave the build settings at their defaults.
 4. **Environment variables.** Add these under *Project → Settings → Environment Variables* (Production + Preview):
@@ -97,8 +99,6 @@ npm run import:programs  # copy programs from the old API (see below)
    | `SMTP_USER` | for email OTP | `ogea.sms@gmail.com` |
    | `SMTP_PASS` | for email OTP | the 16-char App Password |
    | `MAIL_FROM` | optional | `OGEA <ogea.sms@gmail.com>` |
-   | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | for uploads | from the Cloudinary dashboard (without these, admins paste image URLs) |
-   | `CLOUDINARY_FOLDER` | optional | `ogea-api` |
    | `CORS_ORIGINS` | optional | only if another domain must call the API |
 
    > Without SMTP in production, sign-up codes only appear in *Vercel → Logs*. Set SMTP before you announce sign-ups.
@@ -107,10 +107,7 @@ npm run import:programs  # copy programs from the old API (see below)
    ```bash
    MONGODB_URI="mongodb+srv://..." ADMIN_USERNAME=ashique ADMIN_PASSWORD='a-strong-password' ADMIN_EMAIL=ogea.sms@gmail.com npm run seed:admin
    ```
-   Running it again resets that admin's password. To copy programs from the old API into a new database:
-   ```bash
-   MONGODB_URI="mongodb+srv://..." npm run import:programs
-   ```
+   Running it again resets that admin's password.
 7. **Custom domain** (optional): *Project → Settings → Domains*. Nothing else needs to change, because the API is same-origin.
 
 ### How it runs on Vercel
@@ -130,16 +127,16 @@ api/index.js            Vercel function entry (exports the Express app)
 server/
   app.js                Express app: security middleware, routes, errors
   config.js  db.js      env config, cached Mongo connection
-  models/               User, Program, Otp, Conversation/Message
-  routes/               auth, programs, admin, chat, upload
+  models/               User, Otp, Post, Chat (Conversation/Message), PeerChat
+  routes/               auth, posts, messages, admin, chat
   middleware/           auth guards, Zod validation, rate limits, error handler
   utils/                email (OTP), JWT cookies, AppError
-  scripts/              seed-admin, import-programs, dev-seed
+  scripts/              seed-admin, dev-seed
   tests/                API integration tests (Vitest + Supertest)
   dev.js                local API server (in-memory Mongo fallback)
 src/
   pages/                public pages + pages/admin/*
-  components/           Navbar, Footer, ChatWidget, AuthPanel, ProgramCard, ui
+  components/           Navbar, Footer, ChatWidget, AuthPanel, ui
   context/              Auth + UI (theme, chat, toasts)
   lib/                  API client, queries, types, utils
 vercel.json             build, rewrites, headers

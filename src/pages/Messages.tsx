@@ -178,19 +178,20 @@ export default function Messages() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold">Messages</h1>
-          <p className="mt-1 text-sm text-neutral-500">Chat privately with other students.</p>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-0 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
+        <div className="flex items-center justify-between gap-3 px-4 pb-3 sm:px-0">
+          <div>
+            <h1 className="text-2xl font-extrabold">Messages</h1>
+            <p className="mt-1 text-sm text-neutral-500">Chat privately with other students.</p>
+          </div>
+          <button className="btn-primary px-3" onClick={() => setPicker(true)}>
+            <MessageSquarePlus className="size-4" /> New
+          </button>
         </div>
-        <button className="btn-primary px-3" onClick={() => setPicker(true)}>
-          <MessageSquarePlus className="size-4" /> New
-        </button>
-      </div>
 
-      <div className="card grid h-[calc(100vh-15rem)] min-h-[480px] overflow-hidden md:grid-cols-[340px_1fr]">
-        <div className={cn('flex min-h-0 flex-col border-r border-neutral-200 dark:border-neutral-800', selected && 'hidden md:flex')}>
+        <div className="card grid min-h-0 flex-1 overflow-hidden sm:rounded-2xl md:grid-cols-[340px_1fr]">
+          <div className={cn('flex min-h-0 flex-col border-r border-neutral-200 dark:border-neutral-800', selected && 'hidden md:flex')}>
           <div className="border-b border-neutral-200 p-3 dark:border-neutral-800">
             <input className="input" placeholder="Search messages" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search messages" />
             <div className="mt-2 flex gap-1">
@@ -256,6 +257,7 @@ export default function Messages() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 

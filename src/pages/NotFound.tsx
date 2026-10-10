@@ -10,7 +10,7 @@ export default function NotFound() {
       <p className="mt-2 text-neutral-500">The page you are looking for doesn&apos;t exist or has moved.</p>
       <div className="mt-6 flex justify-center gap-3">
         <Link to="/" className="btn-primary">Go home</Link>
-        <Link to="/discover" className="btn-outline">Explore</Link>
+        <Link to="/feed" className="btn-outline">Thoughts</Link>
       </div>
     </div>
   )
