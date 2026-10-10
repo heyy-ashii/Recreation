@@ -64,6 +64,16 @@ nothing; the backend connects directly as Postgres, which bypasses RLS.
   `supabase.test.js` runs it against a real Postgres via `TEST_DATABASE_URL`
   (skipped when unset).
 
+## Messages (student-to-student DMs)
+
+- `server/routes/messages.js` + `server/models/PeerChat.js`; the conversation is
+  keyed by the unordered pair (`pairFor`) so both directions share one thread.
+- `server/routes/chat.js` purges peer messages older than
+  `config.chat.retentionDays` (30) whenever a thread is read.
+- The `/messages` sidebar lists **all other active students** (from
+  `/messages/directory`) on top of existing conversations; picking someone with
+  no thread calls `/messages/start` and opens it.
+
 ## Gotchas
 
 - Apps Script POSTs answer 302 to `script.googleusercontent.com`; Node's fetch
