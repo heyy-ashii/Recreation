@@ -7,6 +7,7 @@ import { api, errorMessage } from '../lib/api'
 import type { ChatMessage } from '../lib/types'
 import { cn, formatTime } from '../lib/utils'
 import AuthPanel from './AuthPanel'
+import BrandName from './BrandName'
 import { Spinner } from './ui'
 
 export function MessageList({ messages, mine }: { messages: ChatMessage[]; mine: 'user' | 'admin' }) {
@@ -56,7 +57,7 @@ function ChatThread() {
         {isLoading ? (
           <div className="grid h-full place-items-center"><Spinner /></div>
         ) : messages.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-neutral-500">Hi! Send a message and the DHGRAM admin team will reply here.</p>
+          <p className="mt-8 text-center text-sm text-neutral-500">Hi! Send a message and the <BrandName /> admin team will reply here.</p>
         ) : (
           <MessageList messages={messages} mine="user" />
         )}

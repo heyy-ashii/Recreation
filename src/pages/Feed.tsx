@@ -1,6 +1,7 @@
 import { Heart, MoreHorizontal, Pencil, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import BrandName from '../components/BrandName'
 import { EmptyState, ErrorState, PageSpinner, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useUi } from '../context/UiContext'
@@ -173,7 +174,7 @@ export default function Feed() {
     <div className="mx-auto max-w-2xl px-4 py-10">
       <header className="mb-6">
         <h1 className="text-3xl font-extrabold">Thoughts</h1>
-        <p className="mt-1 text-sm text-neutral-500">Share what's on your mind with the DHGRAM community.</p>
+        <p className="mt-1 text-sm text-neutral-500">Share what's on your mind with the <BrandName /> community.</p>
       </header>
 
       {user ? (
